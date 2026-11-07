@@ -1,0 +1,10 @@
+# Local source and generated account data
+data/source/
+data/raw/
+data/processed/
+data2
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
