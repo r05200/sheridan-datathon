@@ -36,3 +36,4 @@ backend/data/explain_cache.json
 .vscode/
 *.log
 
+skills-lock.json
