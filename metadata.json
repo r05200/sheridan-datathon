@@ -3,7 +3,7 @@
   "checkpoint_id": "01M6Y0GDMKMS4VWNJS9BG0AC0H",
   "strategy": "manual-commit",
   "branch": "jn",
-  "checkpoints_count": 1,
+  "checkpoints_count": 5,
   "files_touched": [
     "backend/app/ai/shock_parser.py",
     "backend/app/db/services/__init__.py",
@@ -38,25 +38,32 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 42,
-    "cache_creation_tokens": 67513,
-    "cache_read_tokens": 1506584,
-    "output_tokens": 20814,
-    "api_call_count": 21
+    "input_tokens": 88,
+    "cache_creation_tokens": 111585,
+    "cache_read_tokens": 2788224,
+    "output_tokens": 31260,
+    "api_call_count": 43
   },
   "redaction": {
-    "replacements": 6,
+    "replacements": 13,
     "layers": {
       "betterleaks": 0,
       "connection_string": 0,
       "credential_key": 0,
       "credential_value": 0,
       "credentialed_uri": 0,
-      "entropy": 4,
-      "key_context": 2,
+      "entropy": 6,
+      "key_context": 7,
       "provider_token": 0,
       "shell_stdin": 0
     }

@@ -1,0 +1,13 @@
+also for the stress test remove tyhe oart where it talks about the plan and just keep the part where it explains the findings, and on the plan part remove the part that talks about the findings and just keep the plan aanlysis, also make a dropdown or something (like a dropdown tab) where the things come out of it when clicked
+
+---
+
+add the your history is short or irregular into the what does this mean dropdown thign and remove the what the accoujnt history adds
+
+---
+
+make the what this means into a card (no dropdown) with bullet points inside
+
+---
+
+remove status c or d from the where did we get data from loans card thing and also let me know where else it uses status c or d
