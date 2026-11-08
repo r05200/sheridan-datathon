@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .config import build_engine, load_config
+from .config import backup_mode, build_backup_engine, build_engine, load_config
 
 _engine: Engine | None = None
 _factory: sessionmaker[Session] | None = None
@@ -16,7 +16,7 @@ _factory: sessionmaker[Session] | None = None
 def get_engine() -> Engine:
     global _engine, _factory
     if _engine is None:
-        _engine = build_engine(load_config())
+        _engine = build_backup_engine() if backup_mode() else build_engine(load_config())
         _factory = sessionmaker(_engine, expire_on_commit=False)
     return _engine
 

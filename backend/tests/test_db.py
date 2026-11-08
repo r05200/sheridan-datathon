@@ -118,6 +118,55 @@ def test_ddl_prints_without_a_database():
     assert out.startswith("CREATE TABLE account_metrics") and "goal_months_to_goal FLOAT" in out
 
 
+def test_sql_backup_restores_every_row(data_dir):
+    """The --sql backup replays into a fresh database (SQLite here) with every value intact."""
+    import sqlite3
+    from app.account_metrics import compute_account_metrics
+    rows = compute_account_metrics(data_dir)
+    dump = load_setup_db().sql_dump(rows, batch=1000)
+    con = sqlite3.connect(":memory:")
+    con.executescript(dump)
+    cols = [c.name for c in account_metrics.columns]
+    got = con.execute(f"SELECT {', '.join(cols)} FROM account_metrics ORDER BY account_id").fetchall()
+    assert len(got) == len(rows) == 4500
+    for row, back in zip(rows, got):
+        assert tuple(int(row[c]) if isinstance(row[c], bool) else row[c] for c in cols) == back
+
+
+def test_db_disabled_serves_the_sql_backup(no_database, monkeypatch, data_dir, tmp_path):
+    """DB_DISABLED=1: the app reads the SQL backup through the normal services, no live database."""
+    from app.account_metrics import compute_account_metrics
+    from app.db import config as db_config
+    from app.db import session as db_session
+    rows = compute_account_metrics(data_dir)
+    backup = tmp_path / "account_metrics.sql"
+    backup.write_text(load_setup_db().sql_dump(rows))
+    monkeypatch.setattr(db_config, "BACKUP_SQL", backup)
+    monkeypatch.setattr(db_session, "build_backup_engine", lambda: db_config.build_backup_engine(backup))
+    monkeypatch.setenv("DB_DISABLED", "1")
+    try:
+        with session_scope() as s:
+            assert len(services.list_account_ids(s)) == 4500
+            snap = services.get_account_snapshot(s, KNOWN)
+            assert snap.loan_payment == 2330.19 and snap.baseline.months_of_history == 38
+            with pytest.raises(AccountNotFound):
+                services.get_account_baseline(s, UNKNOWN)
+    finally:
+        db_session._engine.dispose()
+
+
+def test_db_disabled_without_backup_file_is_unavailable(tmp_path):
+    from app.db.config import build_backup_engine
+    with pytest.raises(DatabaseUnavailable, match="no backup"):
+        build_backup_engine(tmp_path / "missing.sql")
+
+
+def test_sql_literals_escape_and_handle_specials():
+    lit = load_setup_db()._sql_literal
+    assert [lit(None), lit(True), lit(3), lit(1.5), lit("O'Hare")] == ["NULL", "TRUE", "3", "1.5", "'O''Hare'"]
+    assert lit(float("nan")) == "'nan'::float"
+
+
 def test_load_fills_every_account(writer_engine):
     with writer_engine.connect() as c:
         n, nulls = c.execute(text(

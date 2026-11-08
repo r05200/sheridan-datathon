@@ -25,8 +25,8 @@ cp .env.example .env            # add GEMINI_API_KEY / DATABASE_URL (never commi
 uvicorn app.main:app --reload
 ```
 With no Gemini key, explanations come from the template and the parser returns "Couldn't read that, please use
-the sliders." There is no offline database fallback: if the database is not configured or unreachable, account
-endpoints return 503.
+the sliders." There is no automatic database fallback: if the database is not configured or unreachable, account
+endpoints return 503 (set `DB_DISABLED=1` to serve the SQL backup instead; see below).
 
 ## Database setup (Tiger Data)
 ```
@@ -34,7 +34,13 @@ python scripts/setup_db.py /path/to/data --dry-run   # compute from the CSVs and
 python scripts/setup_db.py /path/to/data             # create account_metrics if missing, replace its rows
 python scripts/setup_db.py /path/to/data --reset     # drop and recreate first (after a schema change)
 python scripts/check_db.py                           # row count and how many accounts are filled in
+python scripts/setup_db.py /path/to/data --sql sql/account_metrics.sql   # SQL backup; no database
+psql "$DATABASE_URL" -f sql/account_metrics.sql      # restore the backup (drops and recreates the table)
 ```
+Offline mode: set `DB_DISABLED=1` in `backend/.env` and the server serves `sql/account_metrics.sql` from an
+in-memory SQLite database instead of Tiger Data (`/api/health` shows `"database": "backup"`). It is only used
+when you ask for it; with `DB_DISABLED=0` a down database still returns 503. Regenerate the file after data changes.
+
 `/path/to/data` needs `monthly_summary.csv` and `loans.csv` (default `$TANGERINE_DATA_DIR` or `~/Downloads/data`).
 Connection comes from `backend/.env` (git-ignored; real environment variables win). Either one string,
 `DATABASE_URL=postgres://user:password@host:port/dbname?sslmode=require`, or separate `DB_HOST`, `DB_PORT`, `DB_USER`,

@@ -8,7 +8,7 @@ from pathlib import Path
 #   TEST_DATABASE_URL=postgresql://postgres:pg@127.0.0.1:55432/postgres?sslmode=disable pytest
 # Each run recreates account_metrics and loads it with the same code path as scripts/setup_db.py.
 os.environ["GEMINI_DISABLED"] = "1"
-for _name in ("DATABASE_URL", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE"):
+for _name in ("DATABASE_URL", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE", "DB_DISABLED"):
     os.environ[_name] = ""             # empty (not removed): load_dotenv won't override it with backend/.env
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_DIR))

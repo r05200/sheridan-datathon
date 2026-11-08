@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from . import config, engine, explainer, shock_parser
-from .db.config import build_url
+from .db.config import BACKUP_SQL, backup_mode, build_url
 from .db import (AccountNotFound, DatabaseUnavailable, NoHistory, get_session, load_config, services,
                  session_scope)
 from .shock_parser import LIMITS
@@ -106,6 +106,12 @@ def _db_down(_, e: DatabaseUnavailable):
     return JSONResponse({"detail": str(e)}, status_code=503)
 
 
+def _database_status() -> str:
+    if backup_mode():
+        return "backup" if BACKUP_SQL.exists() else "backup_missing"
+    return "configured" if _database_configured() else "not_configured"
+
+
 def _database_configured() -> bool:
     try:
         build_url(load_config())      # present and well-formed (does not connect)
@@ -123,7 +129,7 @@ def health() -> dict[str, Any]:
     return {"ok": True, "gemini_enabled": not config.gemini_disabled(),
             "gemini_model": config.gemini_model(),
             "gemini_timeout_seconds": config.GEMINI_TIMEOUT_S,
-            "database": "configured" if _database_configured() else "not_configured"}
+            "database": _database_status()}
 
 
 @app.get("/api/accounts/{account_id}/baseline")

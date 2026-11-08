@@ -3,10 +3,14 @@ automatically (real environment variables win over .env).
 
 Either one connection string:   DATABASE_URL=postgres://user:password@host:port/dbname?sslmode=require
 or separate values:             DB_HOST, DB_PORT (5432), DB_USER, DB_PASSWORD, DB_NAME, DB_SSLMODE (require)
+
+DB_DISABLED=1 skips the live database and serves the SQL backup (sql/account_metrics.sql, written by
+scripts/setup_db.py --sql) from an in-memory SQLite database instead: an offline demo mode.
 """
 from __future__ import annotations
 
 import os
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +18,7 @@ from dotenv import load_dotenv
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
+from sqlalchemy.pool import StaticPool
 
 from .errors import DatabaseUnavailable
 
@@ -22,10 +27,33 @@ load_dotenv(BACKEND_DIR / ".env")
 CONNECT_TIMEOUT_S = 5
 STATEMENT_TIMEOUT_MS = 5000
 DRIVER = "postgresql+psycopg2"
+BACKUP_SQL = BACKEND_DIR / "sql" / "account_metrics.sql"
 
 
 def _env(name: str) -> str | None:
     return os.getenv(name) or None          # empty counts as unset
+
+
+def backup_mode() -> bool:
+    """True when DB_DISABLED is set to 1/true/yes: serve the SQL backup instead of the live database."""
+    return (_env("DB_DISABLED") or "").strip().lower() in ("1", "true", "yes")
+
+
+def build_backup_engine(path: Path = BACKUP_SQL) -> Engine:
+    """In-memory SQLite engine loaded from the SQL backup. One shared connection, read-only use."""
+    if not path.exists():
+        raise DatabaseUnavailable(f"DB_DISABLED=1 but no backup at {path} "
+                                  "(run: python scripts/setup_db.py --sql sql/account_metrics.sql)")
+    engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+    raw = engine.raw_connection()
+    try:
+        raw.driver_connection.executescript(path.read_text())
+    except sqlite3.Error as e:
+        engine.dispose()
+        raise DatabaseUnavailable(f"Could not load backup {path.name}: {e}") from e
+    finally:
+        raw.close()
+    return engine
 
 
 def load_config() -> dict[str, Any]:
