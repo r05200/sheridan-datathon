@@ -1,0 +1,20 @@
+what entire commands have been used and what other core features (brain graph etc ) can be used
+
+---
+
+<pasted_content id="06a4">
+Each member receives:
+• Mini Portable Projector
+
+Entire is the Git forge for agent-human collaboration. Build a smarter AI workflow that uses as many of Entire’s core features (Sessions, Graph, Brain) as possible.
+</pasted_content id="06a4">
+
+use these as much as possible
+
+---
+
+replace the tangerine/resilience rewired to cushion/resilience rewired
+
+---
+
+remove the scrollable part for the manual scenario and just make it expand to match the height needed
