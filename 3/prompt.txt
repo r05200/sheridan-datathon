@@ -1,0 +1,21 @@
+which merge conflict should i keep
+
+---
+
+in app.jsx why would i keep both
+
+---
+
+what abut for css and userdatabase then
+
+---
+
+change it back to your financial monitoring lab for admins
+
+---
+
+why isnt the changes from main showing up it still looks like how it does from my branch, even though tghe cards shoul dhave like more buttons
+
+---
+
+add the new account data into the where did the data come from animation as well
