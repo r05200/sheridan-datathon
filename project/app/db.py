@@ -149,17 +149,23 @@ def table_counts() -> dict[str, int]:
     return {"account_metrics": int(_query(f"SELECT COUNT(*) AS n FROM {METRICS_TABLE}")[0]["n"])}
 
 
-def get_account_page(page: int, search: str = "", page_size: int = 30) -> tuple[int, list[dict]]:
+def get_account_page(page: int, search: str = "", page_size: int = 30, allowed_ids: list[int] | None = None) -> tuple[int, list[dict]]:
     """Read only this page's baseline summaries; count uses the same account-ID filter."""
     pattern = f"%{search}%"
     where = " WHERE CAST(account_id AS TEXT) LIKE %s"
+    params = (pattern,)
+    if allowed_ids is not None:
+        where += " AND account_id = ANY(%s)"
+        params += (allowed_ids,)
+    allowed = set(allowed_ids) if allowed_ids is not None else None
     def matching():
-        return sorted((i, row) for i, row in _offline_rows().items() if search in str(i))
+        return sorted((i, row) for i, row in _offline_rows().items()
+                      if search in str(i) and (allowed is None or i in allowed))
     total = int(_run(f"SELECT COUNT(*) AS total FROM {METRICS_TABLE}" + where,
-                     (pattern,), lambda: [{"total": len(matching())}])[0]["total"])
+                     params, lambda: [{"total": len(matching())}])[0]["total"])
     offset = (page - 1) * page_size
     rows = _run(f"SELECT account_id, income, spending, buffer FROM {METRICS_TABLE}" + where +
-                " ORDER BY account_id LIMIT %s OFFSET %s", (pattern, page_size, offset),
+                " ORDER BY account_id LIMIT %s OFFSET %s", params + (page_size, offset),
                 lambda: [{"account_id": i, **row} for i, row in matching()[offset:offset + page_size]])
     return total, [{"account_id": int(row["account_id"]),
                     **_floats(row, ["income", "spending", "buffer"])} for row in rows]

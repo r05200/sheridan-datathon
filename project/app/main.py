@@ -209,3 +209,36 @@ def peer_comparison(account_id: int):
         return compare_peers(account_id, db.get_peer_metrics())
     except db.AccountNotFound as error:
         raise _not_found(error)
+
+
+@app.get("/api/tangerine/portfolio")
+def portfolio_overview():
+    try:
+        return insights.portfolio_summary(db.get_all_baselines())
+    except insights.InsightsUnavailable as error:
+        raise HTTPException(503, str(error))
+
+
+@app.get("/api/tangerine/accounts")
+def explorer_accounts(page: int = Query(1, ge=1), search: str = Query("", max_length=30),
+                      filter: str = Query("all")):
+    if filter not in insights.FILTERS:
+        raise HTTPException(422, "Unknown account filter")
+    try:
+        directory = insights.account_directory(filter)
+    except insights.InsightsUnavailable as error:
+        raise HTTPException(503, str(error))
+    historical = {row["account_id"]: row for row in directory["accounts"]}
+    total, rows = db.get_account_page(page, search.strip(), 30,
+                                    list(historical) if filter != "all" else None)
+    accounts = []
+    for row in rows:
+        history = historical.get(row["account_id"], {})
+        value = engine.runway(row["buffer"], row["income"], row["spending"])
+        accounts.append({**history, **row,
+                         "runway_status": "no_shortfall" if value == "no_shortfall" else "finite",
+                         "runway_months": round(value, 1) if isinstance(value, (int, float)) else None,
+                         "runway_capped": row["spending"] > row["income"] and row["buffer"] / (row["spending"] - row["income"]) > 120})
+    return {"accounts": accounts, "total": total, "page": page, "page_size": 30,
+            "has_next": page * 30 < total, "has_previous": page > 1,
+            "as_of": directory["as_of"]}
