@@ -1,0 +1,23 @@
+for the frontend increase the width of the account search card thing and also decrease the width of tyhe sides of the main cards (so theres less space bewtween edge of screen and card), for the smaller cards inside remove all the numbers that show the order of the card, also move the cards so that desrbe a change in stress test is on top, and it spans the same width as the top card and then have that card be scrollable (not expand) as the chats come in and then make the second card animate in once its all done
+
+---
+
+for the chat make it take up just the height of your screen with bigger words and then when you press enter the text box turns into a bar that has your text on it and the chatbot also responds in a similar way as it is now, also for review your scenario afyer the manual one it should show a quick bullet point list of teh changes
+
+---
+
+what are thec hanges between maggies branch and mine for frontend
+
+---
+
+reformat. the frontend into react and make the startup use npm
+
+---
+
+<task-notification>
+<task-id>bc3ydopm1</task-id>
+<tool-use-id>toolu_01NzmXuNPnyqknCExiR64uyA</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-jeremyniu-Hackathon-sheridan-datathon/fb9e05bb-70ce-420b-9cba-0f51d5e45b07/tasks/bc3ydopm1.output</output-file>
+<status>failed</status>
+<summary>Background command "Run backend and frontend dev servers" failed with exit code 1</summary>
+</task-notification>
