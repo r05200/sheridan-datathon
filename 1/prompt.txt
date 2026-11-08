@@ -1,0 +1,28 @@
+<pasted_content id="e937">
+remote: error: object b82addafcac3fdd38bd791ab34e29d78dd1a7d52: missingEmail: invalid author/committer line - missing email        
+remote: fatal: fsck error in packed object        
+error: remote unpack failed: index-pack failed
+error: failed to push some refs to 'https://github.com/r05200/sheridan-datathon.git'
+To https://github.com/r05200/sheridan-datathon.git
+!       b82addafcac3fdd38bd791ab34e29d78dd1a7d52:refs/entire/checkpoints/4E/01M6X4A2YB11BE8TJ5H7AEVM4E      [remote rejected] (failed)
+</pasted_content id="e937">
+
+---
+
+commit and push if the checkpoints are good if not just remve it
+
+---
+
+so now its good?
+
+---
+
+make a backup version of the db liek with sql like how it was before
+
+---
+
+so now if i run the server itll show up al the stuff?
+
+---
+
+no i mean for the backup thing
