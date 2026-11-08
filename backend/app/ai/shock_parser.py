@@ -13,7 +13,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 import math
 
-from .engine import OneOffCost, Shock, resolve_one_off
+from ..finance.engine import OneOffCost, Shock, resolve_one_off
 from .gemini_client import GeminiError, get_client
 
 log = logging.getLogger("tangerine.parser")

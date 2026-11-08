@@ -3,10 +3,11 @@ import time
 
 import pytest
 
-from app import engine, explainer
+from app.finance import engine
+from app.ai import explainer
 from app.db import services
-from app.engine import NO_SHORTFALL, OneOffCost, Shock, build_plan
-from app.gemini_client import GeminiClient, GeminiError
+from app.finance.engine import NO_SHORTFALL, OneOffCost, Shock, build_plan
+from app.ai.gemini_client import GeminiClient, GeminiError
 from conftest import FakeClient
 
 BASE = {"income": 3000, "spending": 2600, "buffer": 5200, "household_bills": 900, "months_of_history": 40}
@@ -122,7 +123,7 @@ def test_cache_hit_skips_gemini_and_template_is_not_cached():
 
 
 def test_hung_api_returns_template_within_budget(monkeypatch):
-    monkeypatch.setattr("app.config.gemini_disabled", lambda: False)
+    monkeypatch.setattr("app.ai.config.gemini_disabled", lambda: False)
     client = GeminiClient(timeout_s=0.3)
     monkeypatch.setattr(client, "_call", lambda *a: time.sleep(3) or "{}")
     t0 = time.monotonic()

@@ -3,9 +3,9 @@ from dataclasses import asdict
 
 import pytest
 
-from app import explainer
+from app.ai import explainer
 from app.db import services
-from app.engine import OneOffCost, Shock, build_plan, runway
+from app.finance.engine import OneOffCost, Shock, build_plan, runway
 
 
 BASE = {"income": 3000, "spending": 2600, "buffer": 5200,
@@ -95,7 +95,7 @@ def test_all_accounts_match_independent_reference_for_example_shocks(session):
 
 
 def test_database_views_keep_full_precision_for_every_account(session, data_dir):
-    from app.baseline_calc import compute_baselines
+    from app.finance.baseline_calc import compute_baselines
 
     reference = compute_baselines(data_dir).set_index("account_id")
     for account, values in services.get_all_baselines(session).items():

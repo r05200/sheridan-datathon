@@ -11,7 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from .db import services
+from ..db import services
 from .planning import PlanningOptions, build_action_plan
 
 GOAL_MONTHS_OF_SPENDING = 3

@@ -1,6 +1,6 @@
 import pytest
 
-from app.engine import NO_SHORTFALL, OneOffCost, Shock, build_plan
+from app.finance.engine import NO_SHORTFALL, OneOffCost, Shock, build_plan
 
 BASE = {"income": 3000, "spending": 2600, "buffer": 5200, "household_bills": 900, "months_of_history": 40}
 FLEX = {"card_withdrawals": 420, "cash_withdrawals": 150, "transfers_out_other": 110}

@@ -24,7 +24,7 @@ from sqlalchemy import Engine, inspect  # noqa: E402
 from sqlalchemy.dialects import postgresql  # noqa: E402
 from sqlalchemy.schema import CreateTable  # noqa: E402
 
-from app.account_metrics import compute_account_metrics  # noqa: E402
+from app.finance.account_metrics import compute_account_metrics  # noqa: E402
 from app.db import build_engine, load_config  # noqa: E402
 from app.db.schema import account_metrics, metadata  # noqa: E402
 

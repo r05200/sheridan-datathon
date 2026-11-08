@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
-from app import shock_parser as sp
+from app.ai import shock_parser as sp
 from conftest import FakeClient
 
 

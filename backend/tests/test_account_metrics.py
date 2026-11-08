@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from app.account_metrics import compute_account_metrics, metrics_for
-from app.engine import Shock, build_plan, runway
-from app.planning import PlanningOptions
+from app.finance.account_metrics import compute_account_metrics, metrics_for
+from app.finance.engine import Shock, build_plan, runway
+from app.finance.planning import PlanningOptions
 
 spec = importlib.util.spec_from_file_location(
-    "prepare_data", Path(__file__).resolve().parents[2] / "scripts" / "prepare_data.py")
+    "prepare_data", Path(__file__).resolve().parents[2] / "pipeline" / "prepare_data.py")
 prepare_data = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(prepare_data)
 
@@ -75,7 +75,7 @@ def test_stored_values_equal_the_live_engine_plan(rows):
 
 
 def test_matches_independent_teammate_pipeline_logic(rows):
-    """scripts/prepare_data.py has its own baseline_runway; compare it on every shortfall account."""
+    """pipeline/prepare_data.py has its own baseline_runway; compare it on every shortfall account."""
     for r in rows:
         months, status, capped = prepare_data.baseline_runway(r["buffer"], r["spending"], r["income"])
         if status == "shortfall":

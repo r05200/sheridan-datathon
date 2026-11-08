@@ -1,6 +1,6 @@
 import pytest
-from app import config, shock_parser as sp
-from app.gemini_client import GeminiClient, GeminiError
+from app.ai import config, shock_parser as sp
+from app.ai.gemini_client import GeminiClient, GeminiError
 from conftest import FakeClient
 
 

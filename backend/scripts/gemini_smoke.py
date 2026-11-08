@@ -4,9 +4,9 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from app import config, explainer  # noqa: E402
-from app.engine import Shock, build_plan  # noqa: E402
-from app.gemini_client import GeminiError, get_client  # noqa: E402
+from app.ai import config, explainer  # noqa: E402
+from app.finance.engine import Shock, build_plan  # noqa: E402
+from app.ai.gemini_client import GeminiError, get_client  # noqa: E402
 
 if __name__ == "__main__":
     if config.gemini_disabled():

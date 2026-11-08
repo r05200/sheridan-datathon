@@ -1,8 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
-from app import shock_parser as sp
+from app.ai import shock_parser as sp
 from app.main import app
-from app.engine import Shock, RecurringCost, build_plan
+from app.finance.engine import Shock, RecurringCost, build_plan
 from conftest import FakeClient
 
 BASE = {'income': 4000, 'spending': 3500, 'household_bills': 1500, 'buffer': 10000}
@@ -85,7 +85,6 @@ def test_estimates_resolved_locally_not_sent_to_model():
 def test_api_ui_and_clarification_to_plan_flow():
     with TestClient(app) as client:
         assert client.get('/').status_code==200
-        assert client.get('/static/app.js').status_code==200
         assert len(client.get('/api/accounts').json()['account_ids'])==4500
         d=draft(category_changes=[{'category':'groceries','pct_change':10}], scenario_duration_months=6)
         r=client.post('/api/resolve-shock',json={'account_id':20134,'draft':d.model_dump()}).json()
@@ -99,7 +98,7 @@ def test_api_ui_and_clarification_to_plan_flow():
 
 
 def test_strict_local_fallback_only_for_supported_full_phrases():
-    from app.gemini_client import GeminiError
+    from app.ai.gemini_client import GeminiError
     c = FakeClient(GeminiError('unavailable'))
     r = sp.parse_shock('Grocery prices go up 10% for 6 months.', BASE, c)
     assert r['status']=='needs_input' and r['parser_source']=='local_rules'

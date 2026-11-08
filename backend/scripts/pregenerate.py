@@ -7,9 +7,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from app import engine, explainer  # noqa: E402
+from app.ai import explainer  # noqa: E402
+from app.finance import engine  # noqa: E402
 from app.db import session_scope  # noqa: E402
-from app.engine import OneOffCost, Shock  # noqa: E402
+from app.finance.engine import OneOffCost, Shock  # noqa: E402
 
 DEMO_SHOCKS = [
     Shock(income_multiplier=0.55, income_duration_months=6),

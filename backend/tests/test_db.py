@@ -10,7 +10,7 @@ from sqlalchemy import event, func, select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
-from app.baseline_calc import compute_baselines
+from app.finance.baseline_calc import compute_baselines
 from app.db import (
     AccountNotFound, DatabaseUnavailable, NoHistory, build_engine, load_config, services, session_scope,
 )
@@ -121,7 +121,7 @@ def test_ddl_prints_without_a_database():
 def test_sql_backup_restores_every_row(data_dir):
     """The --sql backup replays into a fresh database (SQLite here) with every value intact."""
     import sqlite3
-    from app.account_metrics import compute_account_metrics
+    from app.finance.account_metrics import compute_account_metrics
     rows = compute_account_metrics(data_dir)
     dump = load_setup_db().sql_dump(rows, batch=1000)
     con = sqlite3.connect(":memory:")
@@ -135,7 +135,7 @@ def test_sql_backup_restores_every_row(data_dir):
 
 def test_db_disabled_serves_the_sql_backup(no_database, monkeypatch, data_dir, tmp_path):
     """DB_DISABLED=1: the app reads the SQL backup through the normal services, no live database."""
-    from app.account_metrics import compute_account_metrics
+    from app.finance.account_metrics import compute_account_metrics
     from app.db import config as db_config
     from app.db import session as db_session
     rows = compute_account_metrics(data_dir)
@@ -175,7 +175,7 @@ def test_load_fills_every_account(writer_engine):
 
 
 def test_load_is_rerunnable_and_atomic(writer_engine, data_dir):
-    from app.account_metrics import compute_account_metrics
+    from app.finance.account_metrics import compute_account_metrics
     setup = load_setup_db()
     rows = compute_account_metrics(data_dir)
     assert setup.load(writer_engine, rows) == 4500                      # re-run replaces, not appends

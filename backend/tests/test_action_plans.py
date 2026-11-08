@@ -1,8 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
-from app import engine, explainer
-from app.planning import PlanningOptions, build_action_plan
+from app.finance import engine
+from app.ai import explainer
+from app.finance.planning import PlanningOptions, build_action_plan
 
 BASE={'income':3000,'spending':2600,'household_bills':900,'buffer':5200}
 

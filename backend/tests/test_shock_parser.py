@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from app import shock_parser as sp
-from app.gemini_client import GeminiError
+from app.ai import shock_parser as sp
+from app.ai.gemini_client import GeminiError
 from conftest import FakeClient
 from parser_cases import CASES, B, D, M, S
 
@@ -153,7 +153,7 @@ def _matches(r, kind, exp) -> bool:
 @pytest.mark.skipif(os.getenv("RUN_LIVE") != "1", reason="set RUN_LIVE=1 and GEMINI_API_KEY to run live")
 def test_live_thirty_phrasings(monkeypatch):
     monkeypatch.delenv("GEMINI_DISABLED", raising=False)
-    from app.gemini_client import GeminiClient
+    from app.ai.gemini_client import GeminiClient
     client = GeminiClient()
     bad, wrong_values = [], 0
     for text, kind, exp in CASES:

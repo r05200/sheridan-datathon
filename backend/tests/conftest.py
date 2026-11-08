@@ -42,7 +42,7 @@ def writer_engine(data_dir):
     """Writable engine on a test database loaded by exactly what scripts/setup_db.py runs."""
     if not TEST_DATABASE_URL:
         pytest.skip("TEST_DATABASE_URL not set (local Postgres for database tests)")
-    from app.account_metrics import compute_account_metrics
+    from app.finance.account_metrics import compute_account_metrics
     from app.db import build_engine
     eng = build_engine({"url": TEST_DATABASE_URL, "sslmode": "disable"}, read_only=False,
                        statement_timeout_ms=0)
@@ -72,7 +72,7 @@ def session(db_engine):
 
 @pytest.fixture(autouse=True)
 def fresh_cache():
-    from app import explainer
+    from app.ai import explainer
     explainer.clear_cache()
     yield
     explainer.clear_cache()

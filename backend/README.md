@@ -3,7 +3,17 @@
 Python 3.10+ / FastAPI. Code computes; Gemini only translates (see the PRD).
 
 ```
-app/engine.py        runway, shock, goal plan, backup plan  -> the Explainer's input JSON
+app/main.py          FastAPI routes: POST /api/plan, /api/explain, /api/parse-shock; GET /api/accounts/{id}/baseline
+app/finance/         the numbers (no AI, no database access except engine reading services)
+  engine.py          runway, shock, goal plan, backup plan  -> the Explainer's input JSON
+  planning.py        action plans, goal and funding plans
+  baseline_calc.py   judges' baseline definitions at full precision (pandas, from the CSVs)
+  account_metrics.py every account_metrics row (baseline + no-shock plan values) for the database load
+app/ai/              Gemini: it only translates, code computes
+  config.py          env settings (GEMINI_API_KEY, model, timeout, explain-cache path)
+  gemini_client.py   shared client: configurable total budget, 1 retry, logging, JSON mode, temperature 0
+  explainer.py       Part 1: Gemini explain -> number validation -> retry -> template fallback -> cache
+  shock_parser.py    Part 2: text -> slider values, range validation, visible assumptions
 app/db/              the only DB package (Tiger Data/Postgres, SQLAlchemy 2.0): read-only, parameterized
   config.py          build_engine(config): 5 s connect + statement timeouts, read-only transactions
   session.py         engine singleton, session_scope(), get_session() (FastAPI dependency)
@@ -11,19 +21,23 @@ app/db/              the only DB package (Tiger Data/Postgres, SQLAlchemy 2.0): 
   errors.py          AccountNotFound, NoHistory, DatabaseUnavailable
   types.py           frozen dataclasses returned by services (money as float)
   services/          fetch-only functions, Session first: get_account_snapshot, list_account_ids, ...
-app/gemini_client.py shared client: configurable total budget, 1 retry, logging, JSON mode, temperature 0
-app/explainer.py     Part 1: Gemini explain -> number validation -> retry -> template fallback -> cache
-app/shock_parser.py  Part 2: text -> slider values, range validation, visible assumptions
-app/main.py          POST /api/plan, /api/explain, /api/parse-shock; GET /api/accounts/{id}/baseline
 ```
 
 ## Run
+One-time setup:
 ```
 cd backend
-pip install -r requirements.txt
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env            # add GEMINI_API_KEY / DATABASE_URL (never commit .env)
-uvicorn app.main:app --reload
+cd .. && npm install            # installs the React frontend (frontend/) and the dev runner
 ```
+Then, from the repository root:
+```
+npm start          # backend on :8000 (uvicorn --reload) + React dev server; open http://localhost:5173
+npm run serve      # build frontend/dist and serve the app and the API together on http://localhost:8000
+```
+`scripts/run-api.mjs` runs uvicorn from `backend/` using `backend/.venv` when it exists (else `python3`).
+The backend alone still runs with `uvicorn app.main:app --reload` from `backend/`.
 With no Gemini key, explanations come from the template and the parser returns "Couldn't read that, please use
 the sliders." There is no automatic database fallback: if the database is not configured or unreachable, account
 endpoints return 503 (set `DB_DISABLED=1` to serve the SQL backup instead; see below).
@@ -47,8 +61,8 @@ Connection comes from `backend/.env` (git-ignored; real environment variables wi
 `DB_PASSWORD`, `DB_NAME`, `DB_SSLMODE` (default `require`). The two forms are not combined: a `DATABASE_URL` is used exactly as written.
 
 The only table is `account_metrics`: one row per account (4,500), one column per number the frontend
-displays. Baseline values follow the judges' definitions at full precision (`app/baseline_calc.py`); runway
-and goal-plan values are produced by the plan engine itself with no shock (`app/account_metrics.py`), so the
+displays. Baseline values follow the judges' definitions at full precision (`app/finance/baseline_calc.py`); runway
+and goal-plan values are produced by the plan engine itself with no shock (`app/finance/account_metrics.py`), so the
 stored numbers match the live app. Shock-dependent values are never stored. Loading takes about a second and
 runs in one transaction, so a failed run leaves the existing rows untouched. If the table's columns no longer
 match `app/db/schema.py`, the script stops and asks for `--reset`.
@@ -96,8 +110,9 @@ those interpretations data-supported.
 
 ## Web app and category estimates
 
-Start the backend normally and open `http://127.0.0.1:8000/` for the local web UI.
-There is no frontend build step. The UI includes account search, baseline metrics,
+The React frontend lives in `../frontend` (Vite). In development `npm start` serves it on :5173 and
+proxies `/api` and `/docs` to this backend. After `npm run build`, this backend serves `frontend/dist` at `/`.
+The UI includes account search, baseline metrics,
 chat input, scenario review, clarification forms, before/after comparison,
 funding/goal/backup plans, explanation and a full-data inspector. Manual controls
 work without Gemini. Each new query describes a complete replacement scenario;

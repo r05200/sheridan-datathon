@@ -6,18 +6,20 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, model_validator
 from pathlib import Path
-from fastapi.responses import FileResponse, JSONResponse
+
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
-from . import config, engine, explainer, shock_parser
+from .ai import config, explainer, shock_parser
+from .finance import engine
 from .db.config import BACKUP_SQL, backup_mode, build_url
 from .db import (AccountNotFound, DatabaseUnavailable, NoHistory, get_session, load_config, services,
                  session_scope)
-from .shock_parser import LIMITS
-from .planning import PlanningOptions
+from .ai.shock_parser import LIMITS
+from .finance.planning import PlanningOptions
 
 app = FastAPI(title="Tangerine resilience engine")
 app.add_middleware(
@@ -191,10 +193,12 @@ def accounts(session: Session = Depends(get_session)):
     return {"account_ids": sorted(services.get_all_baselines(session))}
 
 
-STATIC = Path(__file__).resolve().parent.parent / "static"
-app.mount("/static", StaticFiles(directory=STATIC), name="static")
-
-
-@app.get("/", include_in_schema=False)
-def dashboard():
-    return FileResponse(STATIC / "index.html")
+# Built React app (npm run build -> frontend/dist). Mounted last so every /api route above wins.
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if (FRONTEND_DIST / "index.html").exists():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+else:
+    @app.get("/", include_in_schema=False)
+    def frontend_not_built():
+        return HTMLResponse("<p>Frontend not built. Run <code>npm run build</code> from the repository root, "
+                            "or <code>npm start</code> and open http://localhost:5173.</p>")
