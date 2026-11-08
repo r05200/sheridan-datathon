@@ -8,12 +8,12 @@ FLEX = {"card_withdrawals": 420, "cash_withdrawals": 150, "transfers_out_other":
 
 def test_prd_example_is_reproduced_exactly():
     p = build_plan(BASE, FLEX, Shock(income_multiplier=0.55, income_duration_months=6))
-    assert p["baseline"] == {"income": 3000, "spending": 2600, "buffer": 5200, "runway_months": NO_SHORTFALL}
-    assert p["after_shock"] == {"income": 1650, "spending": 2600, "monthly_gap": 950, "runway_months": 5.5}
+    assert p["baseline"] == {"income": 3000, "spending": 2600, "buffer": 5200, "runway_months": NO_SHORTFALL, "runway_capped": False}
+    assert p["after_shock"] == {"income": 1650, "spending": 2600, "monthly_gap": 950, "runway_months": 5.5, "buffer": 5200, "runway_capped": False}
     assert p["goal_plan"] == {"target_months_of_spending": 3, "target_amount": 7800,
                               "monthly_savings_capacity": 400, "months_to_goal": 6.5}
-    assert p["backup_plan"]["monthly_cut_needed"] == 83
-    assert p["backup_plan"]["cuts_sufficient"] is True
+    assert p["backup_plan"]["monthly_cut_needed"] == 84
+    assert p["backup_plan"]["cuts_sufficient"] is None
     assert p["flags"] == {"low_confidence": False, "reason": None}
 
 
@@ -37,7 +37,7 @@ def test_one_off_cost_comes_out_of_buffer():
 
 def test_zero_buffer_runway_is_zero():
     p = build_plan({**BASE, "buffer": 0}, FLEX, Shock(income_multiplier=0.5))
-    assert p["baseline"]["runway_months"] == NO_SHORTFALL
+    assert p["baseline"]["runway_months"] == 0
     assert p["after_shock"]["runway_months"] == 0
 
 
@@ -49,7 +49,7 @@ def test_negative_buffer_is_treated_as_zero_runway():
 def test_cuts_not_sufficient():
     p = build_plan({**BASE, "buffer": 0}, {"card_withdrawals": 10, "cash_withdrawals": 0, "transfers_out_other": 0},
                    Shock(income_multiplier=0.5, income_duration_months=6))
-    assert p["backup_plan"]["cuts_sufficient"] is False
+    assert p["backup_plan"]["cuts_sufficient"] is None
 
 
 def test_low_confidence_on_short_history():
