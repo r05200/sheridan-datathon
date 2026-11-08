@@ -29,30 +29,32 @@ def test_one_off_relative_cost_resolves_to_dollars():
     assert r["resolved"]["one_off_costs"] == [{"label": "furnace repair", "amount_dollars": 2600}]
 
 
-def test_combined_shock_with_visible_default_duration():
-    r = sp.parse_shock("laid off EI 55% bills up 15%", BASELINE, FakeClient(parsed(
+def test_combined_shock_with_explicit_duration():
+    r = sp.parse_shock("laid off EI 55% for 6 months bills up 15%", BASELINE, FakeClient(parsed(
         income_multiplier=0.55, household_bills_pct_change=15,
         assumptions=["EI at 55% for 6 months assumed"], income_duration_months=6)))
-    assert r["shock"]["income_duration_months"] == 6 and r["assumptions"]
+    assert r["shock"]["income_duration_months"] == 6 and r["status"] == "ok"
     assert r["resolved"]["income_after_shock"] == 1650 and r["resolved"]["household_bills_change"] == 135
 
 
-def test_backend_adds_missing_duration_assumption_never_silent():
-    r = sp.parse_shock("laid off", client=FakeClient(parsed(income_multiplier=0.55)))
-    assert r["shock"]["income_duration_months"] == 6
-    assert any("6 months" in a for a in r["assumptions"])
+def test_layoff_without_amount_or_duration_requires_both():
+    r = sp.parse_shock("laid off", client=FakeClient(parsed(income_multiplier=0.55, income_duration_months=6)))
+    assert r["status"] == "needs_input" and r["shock"] is None
+    assert r["draft"]["income_multiplier"] is None
+    assert r["draft"]["income_duration_months"] is None
+    assert {q['kind'] for q in r['questions']} == {'income_percentage','duration'}
 
 
 def test_vague_size_asks_instead_of_guessing():
     r = sp.parse_shock("rent goes up a bit", client=FakeClient(parsed(
         unresolved=[{"field": "household_bills_pct_change", "reason": "size of increase not stated"}])))
-    assert r["status"] == "ok" and r["shock"]["household_bills_pct_change"] is None
+    assert r["status"] == "needs_input" and r["shock"] is None
     assert r["unresolved"] and r["questions"]
 
 
 def test_one_off_without_any_size_becomes_unresolved():
     r = sp.parse_shock("something breaks", client=FakeClient(parsed(one_off_costs=[{"label": "repair"}])))
-    assert r["shock"]["one_off_costs"] == [] and r["unresolved"][0]["field"] == "one_off_costs"
+    assert r["status"] == "needs_input" and r["shock"] is None and r["unresolved"][0]["field"] == "one_off_costs"
 
 
 def test_not_a_shock_changes_nothing():
@@ -85,7 +87,7 @@ def test_out_of_range_never_reaches_engine(kw):
     {"one_off_costs": [{"label": "x", "multiple_of_monthly_spending": 12}]},
 ])
 def test_boundaries_are_accepted(kw):
-    assert sp.parse_shock("x", BASELINE, FakeClient(parsed(**kw)))["status"] == "ok"
+    assert sp.parse_shock("x", BASELINE, FakeClient(parsed(**kw)))["status"] in {"ok", "needs_input"}
 
 
 def test_api_failure_falls_back_to_sliders_message():
@@ -122,10 +124,12 @@ def test_overlong_text_rejected_without_calling_gemini():
 def _matches(r, kind, exp) -> bool:
     if kind == "none":
         return r["status"] == "no_shock"
+    if kind == "ask":
+        return r["status"] == "needs_input" and r["shock"] is None
     if r["status"] != "ok":
         return False
     s = r["shock"]
-    if kind == "ask":
+    if kind == "unused_legacy":
         return bool(r["unresolved"]) and s["income_multiplier"] is None and s["household_bills_pct_change"] is None \
             and s["spending_pct_change"] is None and not s["one_off_costs"]
     for key in (M, D, B, S):

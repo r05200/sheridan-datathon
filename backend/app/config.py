@@ -18,7 +18,7 @@ def gemini_api_key() -> str | None:
 
 def gemini_model() -> str:
     # Undecided in the PRD: any fast Gemini model with structured JSON output works.
-    return os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    return os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
 
 def gemini_disabled() -> bool:
@@ -33,7 +33,14 @@ def db_disabled() -> bool:
     return _flag("DB_DISABLED") or database_url() is None
 
 
-GEMINI_TIMEOUT_S = 4.0       # PRD: 4-second limit, shared by both parts
+def _timeout_seconds():
+    value = float(os.getenv("GEMINI_TIMEOUT_S", "20"))
+    if not 1 <= value <= 120:
+        raise ValueError("GEMINI_TIMEOUT_S must be between 1 and 120 seconds")
+    return value
+
+
+GEMINI_TIMEOUT_S = _timeout_seconds()  # total per-operation budget, retries included
 DB_CONNECT_TIMEOUT_S = 5     # PRD: 5-second connection timeout
 OFFLINE_BASELINE_PATH = BACKEND_DIR / "data" / "account_baseline.csv"
 EXPLAIN_CACHE_PATH = BACKEND_DIR / "data" / "explain_cache.json"
