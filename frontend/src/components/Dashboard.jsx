@@ -59,7 +59,7 @@ export default function Dashboard({ hidden, view, show, isAdmin, c, accountInput
     <main id="dashboard" hidden={hidden}>
       <section className="intro">
         <div>
-          <p className="eyebrow">YOUR FINANCIAL WHAT-IF LAB</p>
+          <p className="eyebrow">{isAdmin ? 'YOUR FINANCIAL MONITORING LAB' : 'YOUR FINANCIAL WHAT-IF LAB'}</p>
           <h1>Your money,<br />a little clearer.</h1>
           <p className="sub">Explore an account. Apply a shock. Find the buffer you need.</p>
         </div>
@@ -81,7 +81,13 @@ export default function Dashboard({ hidden, view, show, isAdmin, c, accountInput
 
       <section id="customer-snapshot" aria-labelledby="snapshot-title">
         <div className="section-title">
-          <h2 id="snapshot-title">Your starting point</h2>
+          <div className="title-with-help">
+            <h2 id="snapshot-title">Your starting point</h2>
+            <button type="button" className="help-pill" onClick={() => show('data')} aria-label="How did we get this data?">
+              <span className="help-icon" aria-hidden="true">?</span>
+              <span className="help-text" aria-hidden="true">How did we get this data?</span>
+            </button>
+          </div>
           <span>Typical monthly values · CAD</span>
         </div>
         <Metrics baseline={b} plan={c.plan} />
@@ -105,7 +111,6 @@ export default function Dashboard({ hidden, view, show, isAdmin, c, accountInput
       <footer>
         <span>CUSHION / SHERIDAN DATATHON 2026</span>
         <span>Scenario analysis using anonymized account data. Recorded inflows are not verified salary.</span>
-        <a href="/docs">API docs ↗</a>
       </footer>
     </main>
   );

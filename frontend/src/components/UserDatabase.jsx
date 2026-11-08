@@ -74,7 +74,7 @@ export default function UserDatabase({ hidden, onOpen }) {
   return (
     <section id="user-database" hidden={hidden}>
       <div className="database-banner">
-        <p className="eyebrow">YOUR FINANCIAL WHAT-IF LAB</p>
+        <p className="eyebrow">YOUR FINANCIAL MONITORING LAB</p>
         <h1>Account directory</h1>
         <p>Explore portfolio patterns, then open an account’s financial history.</p>
         <span id="database-count">{directory ? `${directory.total_accounts.toLocaleString()} accounts · data through ${directory.as_of}` : 'Loading account directory…'}</span>
