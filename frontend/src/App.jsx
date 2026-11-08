@@ -51,7 +51,7 @@ export default function App() {
           <a className="brand" href="/" aria-label="Cushion home" onClick={e => { e.preventDefault(); show(home); }}>
             <img className="brand-pillow" src="/pillow.PNG" alt="" /> Cushion
           </a>
-          <span className="header-note">TANGERINE / RESILIENCE REWIRED</span>
+          <span className="header-note">CUSHION / RESILIENCE REWIRED</span>
           <button type="button" className="mode-switch" role="switch" aria-checked={isAdmin}
             aria-label="Admin mode" onClick={toggleMode}>
             <span className="mode-label">{isAdmin ? 'Admin' : 'Customer'}</span>

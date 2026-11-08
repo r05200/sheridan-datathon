@@ -283,7 +283,12 @@ def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Sh
                         "upfront_funding_needed": math.ceil(round(upfront_gap, 10)),
                         "cuts_sufficient": cuts_sufficient},
         "flags": {"low_confidence": low_conf, "reason": reason},
+        # Account context for the explainer: typical monthly figures from the customer's own history.
+        "account": {k: _money(baseline[k]) for k in ("household_bills", "fixed_costs", "loan_payment")
+                    if baseline.get(k) is not None},
     }
+    if months_of_history is not None:
+        plan["account"]["months_of_history"] = int(months_of_history)
     if planning is not None:
         plan["action_plan"] = action_plan
     if recurring:
@@ -315,5 +320,6 @@ def plan_for_account(session: Session, account_id: int, shock: Shock,
                      planning: PlanningOptions | None = None) -> dict[str, Any]:
     snap = services.get_account_snapshot(session, account_id)
     baseline = {k: v for k, v in asdict(snap.baseline).items() if k != "account_id"}
+    baseline["loan_payment"] = snap.loan_payment
     flexible = {k: v for k, v in asdict(snap.flexible).items() if k != "account_id"}
     return build_plan(baseline, flexible, shock, account_id, planning)

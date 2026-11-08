@@ -1,5 +1,4 @@
 import { cash, runway } from '../format.js';
-import ActionPlan from './ActionPlan.jsx';
 
 function Chart({ plan }) {
   const n = plan.duration_assessment.months;
@@ -26,7 +25,7 @@ function Chart({ plan }) {
   );
 }
 
-function Explanation({ state }) {
+export function Explanation({ state }) {
   let body;
   if (!state || state.loading) body = <p>Preparing the explanation…</p>;
   else if (state.error) body = `Calculations are available. Explanation unavailable: ${state.error}`;
@@ -42,13 +41,12 @@ function Explanation({ state }) {
       </>
     );
   }
-  return <div id="explanation" className="explanation">{body}</div>;
+  return <div className="explanation">{body}</div>;
 }
 
 const Mini = ({ label, value }) => <div className="mini"><small>{label}</small><strong>{value}</strong></div>;
 
-// Children stay direct descendants of #results: the Plan view's CSS hides all but .action-plans and .explanation.
-function PlanResults({ c }) {
+function PlanResults({ c, show }) {
   const p = c.plan;
   const b = c.baseline;
   const a = p.after_shock;
@@ -87,10 +85,10 @@ function PlanResults({ c }) {
           <Mini label="Time to goal at baseline surplus" value={p.goal_plan.months_to_goal === null ? 'Not reachable' : p.goal_plan.months_to_goal + ' months'} />
         </div>
       </div>
-      {p.action_plan && (
-        <ActionPlan key={c.planVersion} plan={p} planning={c.planning} busy={c.busy} error={c.planningError} onSubmit={c.recalculatePlan} />
-      )}
       <Explanation state={c.explanation} />
+      <div className="to-plan">
+        <button type="button" onClick={() => show('plan')}>Make a plan for this scenario ↗</button>
+      </div>
       <details className="data">
         <summary>Inspect all calculated values and account data</summary>
         <pre>{JSON.stringify({ account: b, plan: p }, null, 2)}</pre>
@@ -100,7 +98,7 @@ function PlanResults({ c }) {
   );
 }
 
-export default function ResultsPanel({ c }) {
+export default function ResultsPanel({ c, show }) {
   return (
     <section className={'results-panel' + (c.plan ? ' revealed' : '')}>
       <div className="panel-heading">
@@ -110,7 +108,7 @@ export default function ResultsPanel({ c }) {
         </div>
       </div>
       <div id="results">
-        {c.plan ? <PlanResults c={c} /> : (
+        {c.plan ? <PlanResults c={c} show={show} /> : (
           <>
             <div className="empty">
               <div className="empty-icon">↗</div>

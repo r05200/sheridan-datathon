@@ -15,10 +15,11 @@ class PlanningOptions:
     def validate(self):
         if self.monthly_contribution is not None and self.monthly_contribution <= 0:
             raise ValueError("Enter a positive savings contribution, or leave it blank for the available surplus")
-        for name, ceiling in [('target_months', 12), ('deadline_months', 120)]:
+        for name, ceiling in [('target_months', None), ('deadline_months', 120)]:
             value = getattr(self, name)
-            if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= ceiling:
-                raise ValueError(f'{name} must be a whole number between 1 and {ceiling}')
+            if not isinstance(value, int) or isinstance(value, bool) or value < 1 or (ceiling and value > ceiling):
+                raise ValueError(f'{name} must be a whole number between 1 and {ceiling}' if ceiling
+                                 else f'{name} must be a whole number of at least 1')
         for name in ['monthly_contribution', 'confirmed_monthly_cut',
                      'confirmed_extra_income', 'confirmed_upfront_funds']:
             value = getattr(self, name)
@@ -61,8 +62,15 @@ def build_action_plan(baseline, income_after, spending_after, one_off, duration,
     capacity = down(surplus)
     contribution = capacity if options.monthly_contribution is None else options.monthly_contribution
     if contribution > capacity:
-        raise ValueError(f'This account currently supports at most {dollars(capacity)}/month of saving. '
-                         'Use a smaller contribution; the plan shows the cash-flow improvement needed for your deadline.')
+        if capacity == 0:
+            reason = (f'This account spends {dollars(-surplus)} more per month than it earns' if surplus < 0
+                      else 'This account earns about as much as it spends each month')
+            raise ValueError(f'{reason}, so there is no surplus to save from yet and a monthly contribution '
+                             'cannot be set. Clear the contribution box to see the cash-flow improvement '
+                             'needed for your deadline.')
+        raise ValueError(f'You entered {dollars(contribution)}/month, but this account\'s normal monthly surplus '
+                         f'(income minus spending, before any shock) is only {dollars(capacity)}. '
+                         f'Enter {dollars(capacity)} or less, or clear the box to save the full surplus.')
     target = up(options.target_months * spending)
     remaining = up(target - buffer)
     target_met = remaining == 0
