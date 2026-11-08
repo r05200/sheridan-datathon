@@ -1,0 +1,472 @@
+{
+  "as_of": "2025-12",
+  "source": "Bundled challenge CSV snapshots; no live database or Gemini required.",
+  "accounts": [
+    {
+      "account_id": 38346,
+      "label": "Healthy running loan",
+      "reason": "Running loan with no historical negative-balance month.",
+      "baseline": {
+        "income": 8983.27,
+        "spending": 8160.75,
+        "household_bills": 1659.38,
+        "fixed_costs": 2108.05,
+        "buffer": 8067.37,
+        "runway_months": 120.0,
+        "runway_status": "no_shortfall",
+        "runway_capped": false,
+        "months_of_history": 25,
+        "loan_contract_monthly_payment": 5621.27
+      },
+      "stress": {
+        "negative_month_count": 0,
+        "worst_observed_balance": 692.2,
+        "cash_withdrawal_share": 0.4877,
+        "loan_status": "C",
+        "loan_status_meaning": "Running, OK so far",
+        "loan_is_running": true,
+        "loan_contract_monthly_payment": 5621.27,
+        "active_loan_monthly_payment": 5621.27,
+        "median_observed_loan_payment": 0.0,
+        "loan_payment_note": "Contractual amount is from the loan snapshot; median observed payment is across the full monthly history and can be zero when payments are intermittent.",
+        "last_month": "2025-12",
+        "income_trend": {
+          "recent_3_month_median": 10001.25,
+          "official_full_history_median": 8983.27,
+          "recent_to_typical_ratio": 1.1133,
+          "median_overstates_recent": false,
+          "flag_threshold_ratio": 0.8,
+          "label": "No 20% recent-inflow warning"
+        },
+        "balance_trend": {
+          "recent_vs_prior_3_month_mean_change": 4914.49,
+          "falling": false,
+          "label": "No falling-balance signal"
+        },
+        "data_note": "Relabelled PKDD'99 Berka history; district attributes are Czech, not Canadian. Groceries are not recorded, and category budgets and one-off prices are user-supplied. Cash withdrawals are not assumed discretionary. Negative months and worst balance are historical.",
+        "observations": 25,
+        "monthly_history": [
+          {
+            "month": "2025-01",
+            "money_in": 9435.34,
+            "money_out": 16685.47,
+            "month_end_balance": 7171.85
+          },
+          {
+            "month": "2025-02",
+            "money_in": 7849.2,
+            "money_out": 7636.57,
+            "month_end_balance": 7384.48
+          },
+          {
+            "month": "2025-03",
+            "money_in": 8934.32,
+            "money_out": 8160.75,
+            "month_end_balance": 8158.05
+          },
+          {
+            "month": "2025-04",
+            "money_in": 6671.15,
+            "money_out": 8160.75,
+            "month_end_balance": 6668.44
+          },
+          {
+            "month": "2025-05",
+            "money_in": 8604.07,
+            "money_out": 8160.75,
+            "month_end_balance": 7111.76
+          },
+          {
+            "month": "2025-06",
+            "money_in": 8936.95,
+            "money_out": 10551.98,
+            "month_end_balance": 5496.8
+          },
+          {
+            "month": "2025-07",
+            "money_in": 9544.21,
+            "money_out": 8160.75,
+            "month_end_balance": 6880.19
+          },
+          {
+            "month": "2025-08",
+            "money_in": 6782.59,
+            "money_out": 8160.75,
+            "month_end_balance": 5502.02
+          },
+          {
+            "month": "2025-09",
+            "money_in": 9419.1,
+            "money_out": 8160.75,
+            "month_end_balance": 6760.37
+          },
+          {
+            "month": "2025-10",
+            "money_in": 10001.25,
+            "money_out": 8160.75,
+            "month_end_balance": 8600.86
+          },
+          {
+            "month": "2025-11",
+            "money_in": 12150.39,
+            "money_out": 8160.75,
+            "month_end_balance": 12590.5
+          },
+          {
+            "month": "2025-12",
+            "money_in": 8960.55,
+            "money_out": 8856.34,
+            "month_end_balance": 12694.7
+          }
+        ]
+      },
+      "peer_context": {
+        "income_quartile": 3,
+        "income_band": "Income quartile 3",
+        "pension_majority": false,
+        "peer_count": 1125,
+        "runway_percentile": 64.2,
+        "peer_capped_share": 71.6,
+        "interpretation": "Higher percentile means longer official runway within this income/pension peer band. Runway is capped at 120 months."
+      },
+      "pension_check": null,
+      "watchlist": {
+        "eligible": true,
+        "rank": 2454,
+        "band": "Routine",
+        "eligible_accounts": 4212,
+        "method": "Rules-based relative ranking; not a probability.",
+        "validation": {
+          "cutoff": "2025-06",
+          "outcome_window": [
+            "2025-07",
+            "2025-12"
+          ],
+          "eligible_accounts": 4178,
+          "later_event_accounts": 35,
+          "priority_band_size": 209,
+          "priority_band_events": 13,
+          "priority_band_hit_rate": 0.06220095693779904,
+          "later_events_captured_pct": 0.37142857142857144,
+          "lowest_surplus_same_size_events": 7,
+          "lowest_surplus_same_size_hit_rate": 0.03349282296650718,
+          "rule": "Equal-weight midrank of low latest balance, low recent 3-month surplus, and falling 3-month balance. Retrospective ranking, not a probability.",
+          "warning": "One six-month holdout only. Most later events are not in the top 5% band."
+        }
+      }
+    },
+    {
+      "account_id": 93088,
+      "label": "Defaulted/debt loan; formula says no shortfall",
+      "reason": "Status D loan and prior negative-balance months, despite a no-shortfall baseline formula.",
+      "baseline": {
+        "income": 7167.2,
+        "spending": 5685.33,
+        "household_bills": 0.0,
+        "fixed_costs": 0.0,
+        "buffer": 8650.18,
+        "runway_months": 120.0,
+        "runway_status": "no_shortfall",
+        "runway_capped": false,
+        "months_of_history": 33,
+        "loan_contract_monthly_payment": 3221.86
+      },
+      "stress": {
+        "negative_month_count": 5,
+        "worst_observed_balance": -7267.57,
+        "cash_withdrawal_share": 0.942,
+        "loan_status": "D",
+        "loan_status_meaning": "Running, client in debt",
+        "loan_is_running": true,
+        "loan_contract_monthly_payment": 3221.86,
+        "active_loan_monthly_payment": 3221.86,
+        "median_observed_loan_payment": 0.0,
+        "loan_payment_note": "Contractual amount is from the loan snapshot; median observed payment is across the full monthly history and can be zero when payments are intermittent.",
+        "last_month": "2025-12",
+        "income_trend": {
+          "recent_3_month_median": 18189.11,
+          "official_full_history_median": 7167.2,
+          "recent_to_typical_ratio": 2.5378,
+          "median_overstates_recent": false,
+          "flag_threshold_ratio": 0.8,
+          "label": "No 20% recent-inflow warning"
+        },
+        "balance_trend": {
+          "recent_vs_prior_3_month_mean_change": -20860.05,
+          "falling": true,
+          "label": "Recent balance is falling"
+        },
+        "data_note": "Relabelled PKDD'99 Berka history; district attributes are Czech, not Canadian. Groceries are not recorded, and category budgets and one-off prices are user-supplied. Cash withdrawals are not assumed discretionary. Negative months and worst balance are historical.",
+        "observations": 33,
+        "monthly_history": [
+          {
+            "month": "2025-01",
+            "money_in": 28501.21,
+            "money_out": 4477.39,
+            "month_end_balance": 24147.8
+          },
+          {
+            "month": "2025-02",
+            "money_in": 25264.12,
+            "money_out": 39215.98,
+            "month_end_balance": 10195.94
+          },
+          {
+            "month": "2025-03",
+            "money_in": 25214.28,
+            "money_out": 4552.65,
+            "month_end_balance": 30857.64
+          },
+          {
+            "month": "2025-04",
+            "money_in": 11021.92,
+            "money_out": 37089.68,
+            "month_end_balance": 4789.88
+          },
+          {
+            "month": "2025-05",
+            "money_in": 53280.67,
+            "money_out": 4791.64,
+            "month_end_balance": 53278.91
+          },
+          {
+            "month": "2025-06",
+            "money_in": 131.64,
+            "money_out": 42308.84,
+            "month_end_balance": 11101.71
+          },
+          {
+            "month": "2025-07",
+            "money_in": 61335.89,
+            "money_out": 28829.89,
+            "month_end_balance": 43607.66
+          },
+          {
+            "month": "2025-08",
+            "money_in": 27083.72,
+            "money_out": 45014.71,
+            "month_end_balance": 25676.73
+          },
+          {
+            "month": "2025-09",
+            "money_in": 30.46,
+            "money_out": 25305.85,
+            "month_end_balance": 401.35
+          },
+          {
+            "month": "2025-10",
+            "money_in": 18189.11,
+            "money_out": 20018.96,
+            "month_end_balance": -1428.51
+          },
+          {
+            "month": "2025-11",
+            "money_in": 76.14,
+            "money_out": 2957.57,
+            "month_end_balance": -4310.0
+          },
+          {
+            "month": "2025-12",
+            "money_in": 22377.02,
+            "money_out": 5222.94,
+            "month_end_balance": 12844.09
+          }
+        ]
+      },
+      "peer_context": {
+        "income_quartile": 2,
+        "income_band": "Income quartile 2",
+        "pension_majority": false,
+        "peer_count": 701,
+        "runway_percentile": 63.6,
+        "peer_capped_share": 72.9,
+        "interpretation": "Higher percentile means longer official runway within this income/pension peer band. Runway is capped at 120 months."
+      },
+      "pension_check": null,
+      "watchlist": {
+        "eligible": false,
+        "rank": null,
+        "band": null,
+        "eligible_accounts": 4212,
+        "method": null,
+        "validation": {
+          "cutoff": "2025-06",
+          "outcome_window": [
+            "2025-07",
+            "2025-12"
+          ],
+          "eligible_accounts": 4178,
+          "later_event_accounts": 35,
+          "priority_band_size": 209,
+          "priority_band_events": 13,
+          "priority_band_hit_rate": 0.06220095693779904,
+          "later_events_captured_pct": 0.37142857142857144,
+          "lowest_surplus_same_size_events": 7,
+          "lowest_surplus_same_size_hit_rate": 0.03349282296650718,
+          "rule": "Equal-weight midrank of low latest balance, low recent 3-month surplus, and falling 3-month balance. Retrospective ranking, not a probability.",
+          "warning": "One six-month holdout only. Most later events are not in the top 5% band."
+        }
+      }
+    },
+    {
+      "account_id": 90553,
+      "label": "No loan; prior negative balances",
+      "reason": "No loan record and prior negative-balance months, despite a no-shortfall baseline formula.",
+      "baseline": {
+        "income": 3629.31,
+        "spending": 3344.32,
+        "household_bills": 0.0,
+        "fixed_costs": 0.0,
+        "buffer": 602.12,
+        "runway_months": 120.0,
+        "runway_status": "no_shortfall",
+        "runway_capped": false,
+        "months_of_history": 71,
+        "loan_contract_monthly_payment": 0.0
+      },
+      "stress": {
+        "negative_month_count": 11,
+        "worst_observed_balance": -4496.89,
+        "cash_withdrawal_share": 0.9977,
+        "loan_status": "",
+        "loan_status_meaning": "No loan record",
+        "loan_is_running": false,
+        "loan_contract_monthly_payment": 0.0,
+        "active_loan_monthly_payment": 0.0,
+        "median_observed_loan_payment": 0.0,
+        "loan_payment_note": "Contractual amount is from the loan snapshot; median observed payment is across the full monthly history and can be zero when payments are intermittent.",
+        "last_month": "2025-12",
+        "income_trend": {
+          "recent_3_month_median": 3552.79,
+          "official_full_history_median": 3629.31,
+          "recent_to_typical_ratio": 0.9789,
+          "median_overstates_recent": false,
+          "flag_threshold_ratio": 0.8,
+          "label": "No 20% recent-inflow warning"
+        },
+        "balance_trend": {
+          "recent_vs_prior_3_month_mean_change": 2501.87,
+          "falling": false,
+          "label": "No falling-balance signal"
+        },
+        "data_note": "Relabelled PKDD'99 Berka history; district attributes are Czech, not Canadian. Groceries are not recorded, and category budgets and one-off prices are user-supplied. Cash withdrawals are not assumed discretionary. Negative months and worst balance are historical.",
+        "observations": 71,
+        "monthly_history": [
+          {
+            "month": "2025-01",
+            "money_in": 3760.45,
+            "money_out": 7057.02,
+            "month_end_balance": 2013.66
+          },
+          {
+            "month": "2025-02",
+            "money_in": 3557.95,
+            "money_out": 9.19,
+            "month_end_balance": 5562.43
+          },
+          {
+            "month": "2025-03",
+            "money_in": 3564.94,
+            "money_out": 7623.36,
+            "month_end_balance": 1503.96
+          },
+          {
+            "month": "2025-04",
+            "money_in": 3555.63,
+            "money_out": 5609.69,
+            "month_end_balance": -550.11
+          },
+          {
+            "month": "2025-05",
+            "money_in": 3568.59,
+            "money_out": 3030.07,
+            "month_end_balance": -11.52
+          },
+          {
+            "month": "2025-06",
+            "money_in": 5329.03,
+            "money_out": 5425.06,
+            "month_end_balance": -107.54
+          },
+          {
+            "month": "2025-07",
+            "money_in": 3552.98,
+            "money_out": 6109.52,
+            "month_end_balance": -2664.01
+          },
+          {
+            "month": "2025-08",
+            "money_in": 3550.97,
+            "money_out": 5383.85,
+            "month_end_balance": -4496.89
+          },
+          {
+            "month": "2025-09",
+            "money_in": 3550.97,
+            "money_out": 928.49,
+            "month_end_balance": -1874.41
+          },
+          {
+            "month": "2025-10",
+            "money_in": 3551.1,
+            "money_out": 785.2,
+            "month_end_balance": 891.49
+          },
+          {
+            "month": "2025-11",
+            "money_in": 3552.79,
+            "money_out": 4793.4,
+            "month_end_balance": -349.12
+          },
+          {
+            "month": "2025-12",
+            "money_in": 5332.75,
+            "money_out": 7055.7,
+            "month_end_balance": -2072.06
+          }
+        ]
+      },
+      "peer_context": {
+        "income_quartile": 2,
+        "income_band": "Income quartile 2",
+        "pension_majority": false,
+        "peer_count": 701,
+        "runway_percentile": 63.6,
+        "peer_capped_share": 72.9,
+        "interpretation": "Higher percentile means longer official runway within this income/pension peer band. Runway is capped at 120 months."
+      },
+      "pension_check": null,
+      "watchlist": {
+        "eligible": false,
+        "rank": null,
+        "band": null,
+        "eligible_accounts": 4212,
+        "method": null,
+        "validation": {
+          "cutoff": "2025-06",
+          "outcome_window": [
+            "2025-07",
+            "2025-12"
+          ],
+          "eligible_accounts": 4178,
+          "later_event_accounts": 35,
+          "priority_band_size": 209,
+          "priority_band_events": 13,
+          "priority_band_hit_rate": 0.06220095693779904,
+          "later_events_captured_pct": 0.37142857142857144,
+          "lowest_surplus_same_size_events": 7,
+          "lowest_surplus_same_size_hit_rate": 0.03349282296650718,
+          "rule": "Equal-weight midrank of low latest balance, low recent 3-month surplus, and falling 3-month balance. Retrospective ranking, not a probability.",
+          "warning": "One six-month holdout only. Most later events are not in the top 5% band."
+        }
+      }
+    }
+  ],
+  "caveats": [
+    "Relabelled PKDD'99 Berka financial data; district attributes describe Czech districts, not Canadian places.",
+    "Recorded inflows are not verified salary; average daily balance is a challenge-defined buffer proxy.",
+    "Groceries are not a recorded column. Category budgets and one-off prices must come from the user.",
+    "The watchlist is a relative, rules-based sort for accounts with no observed negative-balance month; it is not a probability and misses most later events.",
+    "Historical negative months and worst balances are observations, not forecasts or financial advice."
+  ]
+}

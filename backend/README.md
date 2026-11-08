@@ -81,6 +81,9 @@ Database tests run against a local Postgres; the CSVs are loaded on first use (`
 docker run -d --rm --name tangerine-pg -e POSTGRES_PASSWORD=pg -p 55432:5432 postgres:16
 TEST_DATABASE_URL="postgresql://postgres:pg@127.0.0.1:55432/postgres?sslmode=disable" pytest
 ```
+`TANGERINE_DATA_DIR` selects the directory containing `monthly_summary.csv` and `loans.csv`; by default the
+app uses the repository's `data/` directory. Account profiles are read from `backend/data/customer_profiles.csv`.
+Offline dry run: `GEMINI_DISABLED=1 DB_DISABLED=1 uvicorn app.main:app` with the network off.
 
 ## Calculation contract
 
@@ -117,6 +120,43 @@ chat input, scenario review, clarification forms, before/after comparison,
 funding/goal/backup plans, explanation and a full-data inspector. Manual controls
 work without Gemini. Each new query describes a complete replacement scenario;
 chat history is not sent as conversational memory.
+
+The account baseline also returns historical stress signals, recent-versus-typical
+inflow and balance comparisons, an income-quartile/pension peer band, an EI-55%
+comparison for pension-majority accounts, and an eligible-only never-negative
+watchlist rank. It includes a six-month reverse stress test (maximum income loss the
+buffer can cover, plus the extra buffer needed at 50% income retention), a spending
+drift flag comparing the latest three months with those same months one year earlier,
+and a latest month-end balance comparison with the official six-month average buffer.
+These are scenario and historical signals, not forecasts.
+
+`POST /api/plan` also attaches a short `account_context` containing applicable
+historical flags. Gemini may use these as qualitative context for the explanation;
+the deterministic plan calculations do not use or change based on those flags.
+
+The Accounts view includes a portfolio scenario overview from
+`GET /api/tangerine/portfolio`. It reports baseline counts and applies three
+illustrative twists: income retained at 55%, that income scenario plus household
+bills up 15%, and an immediate repair cost equal to one month of typical spending.
+Runway is rounded to one decimal before cohort counts are calculated. The
+55%-income scenario is not an Employment Insurance eligibility estimate; all
+portfolio counts describe the relabelled Czech source data, not Canadian customers.
+The account page visualizes the last 12 months of inflows, outflows, and month-end
+balances, with progress indicators for selected historical measures.
+`GET /api/tangerine/accounts?filter=all` returns all 4,500 accounts;
+filters include `troubled_loans_healthy`, `no_loan_negative`, `negative`, and
+`watchlist`. `GET /api/tangerine/spotlights` serves three frozen account snapshots
+for offline demos. Rebuild them after changing source data with
+`python scripts/build_spotlights.py`.
+
+The watchlist is a relative, equal-weight ranking of low latest balance, low
+three-month surplus, and falling balance. It is not a probability, is withheld
+for accounts with any observed negative-balance month, and its retrospective
+six-month holdout is a small, single test rather than a forecast. The interface
+shows its top-5% hit rate and comparison to lowest-surplus-only at the same list
+size. All diagnostics are based on relabelled PKDD'99 Berka history; districts
+are Czech, groceries are not a recorded field, and category budgets and one-off
+prices are supplied by the user.
 
 Specific categories such as groceries/rent never automatically use total spending
 or the household-bills aggregate. `POST /api/parse-shock` may return `needs_input`

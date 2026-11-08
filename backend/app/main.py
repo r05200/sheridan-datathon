@@ -20,6 +20,7 @@ from .db import (AccountNotFound, DatabaseUnavailable, NoHistory, get_session, l
                  session_scope)
 from .ai.shock_parser import LIMITS
 from .finance.planning import PlanningOptions
+from . import insights
 
 app = FastAPI(title="Tangerine resilience engine")
 app.add_middleware(
@@ -147,18 +148,30 @@ def health() -> dict[str, Any]:
 @app.get("/api/accounts/{account_id}/baseline")
 def baseline(account_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
     snap = services.get_account_snapshot(session, account_id)
-    return {"account_id": account_id, **_without_id(snap.baseline),
-            "loan_payment": snap.loan_payment, "flexible_spending": _without_id(snap.flexible)}
+    payload = {"account_id": account_id, **_without_id(snap.baseline),
+               "loan_payment": snap.loan_payment, "flexible_spending": _without_id(snap.flexible)}
+    try:
+        payload.update(insights.account_insights(account_id, payload))
+        return payload
+    except insights.InsightsUnavailable as e:
+        raise HTTPException(503, str(e)) from None
+    except KeyError:
+        raise HTTPException(404, f"Account {account_id} not found in historical insight data") from None
 
 
 @app.post("/api/plan")
 def plan(req: PlanRequest, session: Session = Depends(get_session)) -> dict[str, Any]:
     """Numbers only (fast). The UI shows these first, then calls /api/explain."""
     try:
-        return engine.plan_for_account(session, req.account_id, req.shock.to_engine(),
-                                       PlanningOptions(**req.planning.model_dump()))
+        result = engine.plan_for_account(
+            session, req.account_id, req.shock.to_engine(), PlanningOptions(**req.planning.model_dump())
+        )
+        result["account_context"] = insights.plan_context(req.account_id, result["baseline"])
+        return result
     except ValueError as e:
         raise HTTPException(422, str(e))
+    except insights.InsightsUnavailable as e:
+        raise HTTPException(503, str(e)) from None
 
 
 @app.post("/api/explain")
@@ -201,6 +214,32 @@ def resolve_shock(req: ResolveRequest, session: Session = Depends(get_session)):
 @app.get("/api/accounts")
 def accounts(session: Session = Depends(get_session)):
     return {"account_ids": sorted(services.get_all_baselines(session))}
+
+
+@app.get("/api/tangerine/accounts")
+def tangerine_accounts(filter: str = "all") -> dict[str, Any]:
+    try:
+        return insights.account_directory(filter)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    except insights.InsightsUnavailable as e:
+        raise HTTPException(503, str(e)) from None
+
+
+@app.get("/api/tangerine/portfolio")
+def tangerine_portfolio(session: Session = Depends(get_session)) -> dict[str, Any]:
+    baselines = services.get_all_baselines(session)
+    return insights.portfolio_summary({
+        account_id: asdict(baseline) for account_id, baseline in baselines.items()
+    })
+
+
+@app.get("/api/tangerine/spotlights")
+def tangerine_spotlights() -> dict[str, Any]:
+    try:
+        return insights.spotlight_snapshots()
+    except insights.InsightsUnavailable as e:
+        raise HTTPException(503, str(e)) from None
 
 
 # Built React app (npm run build -> frontend/dist). Mounted last so every /api route above wins.

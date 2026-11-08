@@ -27,8 +27,8 @@ build/
 .next/
 .vite/
 
-# Raw competition data (large; loaded into the database separately)
-/data/
+# Official track files in /data are part of the repo.
+# Generated loads and compressed copies stay out.
 backend/data/raw/
 *.csv.gz
 
