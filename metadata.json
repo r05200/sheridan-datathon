@@ -3,7 +3,7 @@
   "checkpoint_id": "01M6XPA1DB545AZESFV3Q5ZG6S",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 11,
+  "checkpoints_count": 12,
   "files_touched": [
     "backend/app/finance/engine.py",
     "backend/app/finance/planning.py",
@@ -33,25 +33,32 @@
       "compact_transcript": "/1/transcript.jsonl",
       "content_hash": "/1/content_hash.txt",
       "prompt": "/1/prompt.txt"
+    },
+    {
+      "metadata": "/2/metadata.json",
+      "transcript": "/2/full.jsonl",
+      "compact_transcript": "/2/transcript.jsonl",
+      "content_hash": "/2/content_hash.txt",
+      "prompt": "/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 192,
-    "cache_creation_tokens": 222873,
-    "cache_read_tokens": 8733902,
-    "output_tokens": 81078,
-    "api_call_count": 86
+    "input_tokens": 202,
+    "cache_creation_tokens": 247126,
+    "cache_read_tokens": 8955612,
+    "output_tokens": 82862,
+    "api_call_count": 91
   },
   "redaction": {
-    "replacements": 23,
+    "replacements": 31,
     "layers": {
       "betterleaks": 3,
       "connection_string": 0,
       "credential_key": 0,
       "credential_value": 1,
       "credentialed_uri": 4,
-      "entropy": 9,
-      "key_context": 10,
+      "entropy": 15,
+      "key_context": 12,
       "provider_token": 0,
       "shell_stdin": 0
     }
