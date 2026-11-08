@@ -1,0 +1,29 @@
+what backend changes does maggie have on branhc
+
+---
+
+so if i change the backened or frontend its fine righ
+
+---
+
+what about tyler will ther be any merge conflicts
+
+---
+
+remove the frontend startup with the python command
+
+---
+
+doesnt maggie have any changes on her branch or on main i dont hvae
+
+---
+
+what commands do i run to start the app for both back and frontend
+
+---
+
+why deos nom start start the backend as well
+
+---
+
+shrink the height of the gap between the text box and the what would you like to stress testso that the card and the navbar and the top bar with the cards fills up 1 screen height

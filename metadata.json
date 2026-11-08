@@ -3,12 +3,13 @@
   "checkpoint_id": "01M6XHZQNR3QJVF5MWVPHPRWG5",
   "strategy": "manual-commit",
   "branch": "jn",
-  "checkpoints_count": 6,
+  "checkpoints_count": 13,
   "files_touched": [
     "README.md",
     "backend/app/db/services/accounts.py",
     "backend/scripts/check_db.py",
     "backend/tests/test_services_columns.py",
+    "frontend/src/styles.css",
     "scripts/prepare_data.py",
     "tests/test_prepare_data.py"
   ],
@@ -26,6 +27,13 @@
       "compact_transcript": "/1/transcript.jsonl",
       "content_hash": "/1/content_hash.txt",
       "prompt": "/1/prompt.txt"
+    },
+    {
+      "metadata": "/2/metadata.json",
+      "transcript": "/2/full.jsonl",
+      "compact_transcript": "/2/transcript.jsonl",
+      "content_hash": "/2/content_hash.txt",
+      "prompt": "/2/prompt.txt"
     }
   ],
   "token_usage": {
@@ -36,15 +44,15 @@
     "api_call_count": 8
   },
   "redaction": {
-    "replacements": 75,
+    "replacements": 97,
     "layers": {
       "betterleaks": 4,
       "connection_string": 0,
       "credential_key": 0,
-      "credential_value": 1,
-      "credentialed_uri": 46,
+      "credential_value": 3,
+      "credentialed_uri": 48,
       "entropy": 4,
-      "key_context": 23,
+      "key_context": 41,
       "provider_token": 0,
       "shell_stdin": 0
     }
