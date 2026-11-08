@@ -1,0 +1,1 @@
+if one stress test scenario sends multiple clauses and they are time based to ask for both in the clarification part
