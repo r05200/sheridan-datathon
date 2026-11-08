@@ -1,0 +1,17 @@
+change the text in the admin mode to show your financial monitoring lab, and also next to your starting point add a button thats like a question mark , and then on hover, it animates and the right side expands outward and text appears saying how did we get this data? and on click it should open a new screen with a back button that shows a visual "tree" of each of the steps of the data collection process (i.e fetching from table, with a circle with the outline spinning beside it, once after 0.8 seconds hardcoded delay it creates a node beneath itself and a path is draw to the next one, for ones where its aggregated make the path split into as many columns as it adds together and tyhen show them merging together
+
+---
+
+increase the hardcoded delay to 1 second and also remove the served to your dashboard  by subtitle
+
+---
+
+make the background all cream coloured instead of expanding downward in chunks
+
+---
+
+make the animation take 3x as long
+
+---
+
+make the hover on the question mark animation take 3x as long
