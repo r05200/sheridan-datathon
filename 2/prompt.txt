@@ -1,0 +1,9 @@
+change the explainer to take more of the account data provided in the what this means portion, also add a button under the stress test explaining part that leads to the plan and if a scenario is applied itll show as a card in 1 line at the top of the plans thing and only make the shock hits thing if a scenario is applied else make the plan card take up the whole thing
+
+---
+
+at the botom if no stress test applied add a button thats like add stress test to see effects of shocks or something
+
+---
+
+increase text sizing of that new section you just added for the text
