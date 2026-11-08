@@ -1,3 +1,8 @@
+# Local source and generated account data
+data/source/
+data/raw/
+data/processed/
+data2
 # Secrets (Gemini key, Tiger Data connection string) - never commit
 .env
 .env.*

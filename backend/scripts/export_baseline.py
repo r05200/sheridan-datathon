@@ -13,5 +13,5 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.exit(__doc__)
     df = compute_baselines(Path(sys.argv[1]))
-    df.round(2).to_csv(config.OFFLINE_BASELINE_PATH, index=False)
+    df.to_csv(config.OFFLINE_BASELINE_PATH, index=False)
     print(f"Wrote {len(df)} accounts to {config.OFFLINE_BASELINE_PATH}")
