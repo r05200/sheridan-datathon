@@ -1,0 +1,9 @@
+how do i run this branch
+
+---
+
+i mean on my updates
+
+---
+
+Can you check in my-branch or whatever its called and implement any data/visualizations that are not there, do not remove anything thats here unless its redundant, flag it and then let me know, also the my branch will be in js not in jsx so convert anything if made

@@ -1,0 +1,62 @@
+{
+  "cli_version": "0.13.1",
+  "checkpoint_id": "01M6Y0GDMKMS4VWNJS9BG0AC0H",
+  "session_id": "b186efd1-9979-4f6f-a2d3-d66dd7b25457",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-08T16:40:20.59896Z",
+  "branch": "jn",
+  "checkpoints_count": 3,
+  "save_step_count": 1,
+  "files_touched": [
+    "backend/app/db/services/__init__.py",
+    "backend/app/db/services/accounts.py",
+    "backend/app/finance/peers.py",
+    "backend/app/insights.py",
+    "backend/app/main.py",
+    "backend/tests/test_directory_health.py",
+    "backend/tests/test_peers.py",
+    "frontend/src/App.jsx",
+    "frontend/src/components/AccountInsights.jsx",
+    "frontend/src/components/ActionPlan.jsx",
+    "frontend/src/components/ChatPanel.jsx",
+    "frontend/src/components/Dashboard.jsx",
+    "frontend/src/components/DataLineage.jsx",
+    "frontend/src/components/PeerComparison.jsx",
+    "frontend/src/components/PlanContext.jsx",
+    "frontend/src/components/Projection.jsx",
+    "frontend/src/components/ResultsPanel.jsx",
+    "frontend/src/components/UserDatabase.jsx",
+    "frontend/src/format.js",
+    "frontend/src/styles.css"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-sonnet-5-5",
+  "turn_id": "b1a76bad36fa",
+  "checkpoint_transcript_start": 82,
+  "transcript_lines_at_start": 82,
+  "compact_transcript_start": 10,
+  "token_usage": {
+    "input_tokens": 408,
+    "cache_creation_tokens": 233754,
+    "cache_read_tokens": 2442786,
+    "output_tokens": 85570,
+    "api_call_count": 22
+  },
+  "redaction": {
+    "replacements": 20,
+    "layers": {
+      "betterleaks": 8,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 2,
+      "credentialed_uri": 4,
+      "entropy": 6,
+      "key_context": 6,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 6
+  }
+}
