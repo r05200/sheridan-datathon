@@ -1,0 +1,5 @@
+is teh database stuff implemented
+
+---
+
+remove any useless code only if youre sure its useless
