@@ -1,0 +1,21 @@
+why does it say like This account currently supports at most $0.00/month of saving. Use a smaller contribution; the plan shows the cash-flow improvement needed for your deadline.
+
+---
+
+explain the saving contribution part and stuff, doesnt it seem kind of misleading also how do you set amount to save per monh
+
+---
+
+alright add the wording changes, but also if i set the target months to 50 and my scenario is i lose income for a year why cant i still se a contributiopn how is that even decided and also how does that screen decide how quickly youre getting to your goal if it just keeps saying im at a deficit even after 50 months
+
+---
+
+take off teh 12 month limit on the buffer
+
+---
+
+why was ther eeven a cap
+
+---
+
+.clear
