@@ -1,0 +1,25 @@
+what happened to my setup db scripts
+
+---
+
+undo teh commit on main and restore all changes to staged
+
+---
+
+isnt the claude thing gitignored
+
+---
+
+ignore all the skills stuff but not the entire stuff
+
+---
+
+remove the skills file from tracking
+
+---
+
+resolve the merge conflicts and if theres naything youre not sure about ask
+
+---
+
+fix the issues we have and re implement the functions if needed
