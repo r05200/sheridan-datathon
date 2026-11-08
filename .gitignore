@@ -5,7 +5,6 @@ data/processed/
 data2
 # Secrets (Gemini key, Tiger Data connection string) - never commit
 .env
-backend/db_config.json
 .env.*
 !.env.example
 *.pem
@@ -42,4 +41,6 @@ backend/data/explain_cache.json
 .vscode/
 *.log
 
+# Claude Code skills (local only; .entire/ stays tracked)
+.claude/skills/
 skills-lock.json

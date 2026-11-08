@@ -1,16 +1,16 @@
-"""Connection config and engine construction.
+"""Connection config and engine construction. Settings come from the environment, with backend/.env loaded
+automatically (real environment variables win over .env).
 
-Config dict: {host, port, user, password, dbname, sslmode="require"} or {url}.
-Source order: DATABASE_URL env var, then the JSON file at DB_CONFIG_PATH
-(default backend/db_config.json, git-ignored).
+Either one connection string:   DATABASE_URL=postgres://user:password@host:port/dbname?sslmode=require
+or separate values:             DB_HOST, DB_PORT (5432), DB_USER, DB_PASSWORD, DB_NAME, DB_SSLMODE (require)
 """
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
@@ -18,20 +18,28 @@ from sqlalchemy.exc import ArgumentError
 from .errors import DatabaseUnavailable
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-DEFAULT_CONFIG_PATH = BACKEND_DIR / "db_config.json"
+load_dotenv(BACKEND_DIR / ".env")
 CONNECT_TIMEOUT_S = 5
 STATEMENT_TIMEOUT_MS = 5000
 DRIVER = "postgresql+psycopg2"
 
 
+def _env(name: str) -> str | None:
+    return os.getenv(name) or None          # empty counts as unset
+
+
 def load_config() -> dict[str, Any]:
-    url = os.getenv("DATABASE_URL")
+    """Config dict {url, ...} or {host, port, user, password, dbname, sslmode} from the environment."""
+    url = _env("DATABASE_URL")
     if url:
         return {"url": url}
-    path = Path(os.getenv("DB_CONFIG_PATH", DEFAULT_CONFIG_PATH))
-    if path.exists():
-        return json.loads(path.read_text())
-    raise DatabaseUnavailable(f"Database not configured: set DATABASE_URL or create {path}")
+    if _env("DB_HOST"):
+        return {k: v for k, v in {
+            "host": _env("DB_HOST"), "port": _env("DB_PORT") or 5432, "user": _env("DB_USER"),
+            "password": _env("DB_PASSWORD"), "dbname": _env("DB_NAME"), "sslmode": _env("DB_SSLMODE"),
+        }.items() if v}
+    raise DatabaseUnavailable("Database not configured: set DATABASE_URL (or DB_HOST, DB_USER, DB_PASSWORD, "
+                              "DB_NAME) in backend/.env")
 
 
 def build_url(config: dict[str, Any]) -> URL:

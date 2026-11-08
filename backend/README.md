@@ -36,8 +36,9 @@ python scripts/setup_db.py /path/to/data --reset     # drop and recreate first (
 python scripts/check_db.py                           # row count and how many accounts are filled in
 ```
 `/path/to/data` needs `monthly_summary.csv` and `loans.csv` (default `$TANGERINE_DATA_DIR` or `~/Downloads/data`).
-Connection: `DATABASE_URL`, or a JSON config at `DB_CONFIG_PATH` (default `backend/db_config.json`, git-ignored):
-`{"host": ..., "port": 5432, "user": ..., "password": ..., "dbname": ..., "sslmode": "require"}`.
+Connection comes from `backend/.env` (git-ignored; real environment variables win). Either one string,
+`DATABASE_URL=postgres://user:password@host:port/dbname?sslmode=require`, or separate `DB_HOST`, `DB_PORT`, `DB_USER`,
+`DB_PASSWORD`, `DB_NAME`, `DB_SSLMODE` (default `require`). The two forms are not combined: a `DATABASE_URL` is used exactly as written.
 
 The only table is `account_metrics`: one row per account (4,500), one column per number the frontend
 displays. Baseline values follow the judges' definitions at full precision (`app/baseline_calc.py`); runway

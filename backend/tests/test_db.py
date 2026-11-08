@@ -16,7 +16,7 @@ from app.db import (
 )
 from app.db.config import build_url
 from app.db.schema import account_metrics
-from conftest import load_setup_db
+from conftest import BACKEND_DIR, load_setup_db
 
 KNOWN = 20111          # hand-checked: 38 months, running loan (status D) of 2330.19
 METRIC_COLUMNS = ("runway_months", "has_shortfall", "runway_capped", "monthly_shortfall", "monthly_surplus",
@@ -48,13 +48,33 @@ def test_config_missing_fields_is_unavailable():
         build_url({"user": "u", "dbname": "d"})
 
 
-def test_load_config_env_then_json(monkeypatch, tmp_path):
-    cfg = tmp_path / "db.json"
-    cfg.write_text('{"host": "h", "user": "u", "dbname": "d"}')
-    monkeypatch.setenv("DB_CONFIG_PATH", str(cfg))
-    assert load_config()["host"] == "h"
+def test_load_config_from_url_uses_it_as_is(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://x@y/z")
+    monkeypatch.setenv("DB_PASSWORD", "ignored")                    # never merged into a DATABASE_URL
     assert load_config() == {"url": "postgresql://x@y/z"}
+    assert build_url(load_config()).password is None
+
+
+def test_load_config_from_separate_values(monkeypatch):
+    for k, v in {"DB_HOST": "h", "DB_USER": "u", "DB_PASSWORD": "p", "DB_NAME": "d", "DB_SSLMODE": "disable"}.items():
+        monkeypatch.setenv(k, v)
+    cfg = load_config()
+    assert cfg == {"host": "h", "port": 5432, "user": "u", "dbname": "d", "password": "p", "sslmode": "disable"}
+    url = build_url(cfg)
+    assert (url.host, url.port, url.username, url.database, url.query["sslmode"]) == ("h", 5432, "u", "d", "disable")
+
+
+def test_dotenv_file_is_loaded(tmp_path):
+    """A fresh interpreter picks up backend/.env-style settings (here via a temp copy of the loader)."""
+    import subprocess
+    import sys
+    env_file = tmp_path / ".env"
+    env_file.write_text("DATABASE_URL=postgresql://fromfile@h/d\n")
+    code = ("from dotenv import load_dotenv; load_dotenv(r'%s'); "
+            "from app.db.config import _env; print(_env('DATABASE_URL'))" % env_file)
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=BACKEND_DIR,
+                         env={k: v for k, v in __import__("os").environ.items() if k != "DATABASE_URL"})
+    assert out.stdout.strip().endswith("postgresql://fromfile@h/d")
 
 
 def test_no_config_is_database_unavailable(no_database):
