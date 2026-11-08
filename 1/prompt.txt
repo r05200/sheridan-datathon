@@ -1,0 +1,9 @@
+move the files around into appropriate folders and let me know hot to run the frontend and backend
+
+---
+
+split up the fiels in app into separate folders
+
+---
+
+make sure the backedn sqlalchemy functions work properly with the db columns

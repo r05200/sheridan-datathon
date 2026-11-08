@@ -3,9 +3,14 @@
   "checkpoint_id": "01M6XHZQNR3QJVF5MWVPHPRWG5",
   "strategy": "manual-commit",
   "branch": "jn",
-  "checkpoints_count": 5,
+  "checkpoints_count": 6,
   "files_touched": [
-    "backend/scripts/check_db.py"
+    "README.md",
+    "backend/app/db/services/accounts.py",
+    "backend/scripts/check_db.py",
+    "backend/tests/test_services_columns.py",
+    "scripts/prepare_data.py",
+    "tests/test_prepare_data.py"
   ],
   "sessions": [
     {
@@ -14,25 +19,32 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 0,
-    "cache_creation_tokens": 0,
-    "cache_read_tokens": 0,
-    "output_tokens": 0,
-    "api_call_count": 0
+    "input_tokens": 18,
+    "cache_creation_tokens": 11692,
+    "cache_read_tokens": 1161843,
+    "output_tokens": 8682,
+    "api_call_count": 8
   },
   "redaction": {
-    "replacements": 16,
+    "replacements": 75,
     "layers": {
-      "betterleaks": 0,
+      "betterleaks": 4,
       "connection_string": 0,
       "credential_key": 0,
-      "credential_value": 0,
-      "credentialed_uri": 8,
-      "entropy": 0,
-      "key_context": 8,
+      "credential_value": 1,
+      "credentialed_uri": 46,
+      "entropy": 4,
+      "key_context": 23,
       "provider_token": 0,
       "shell_stdin": 0
     }
