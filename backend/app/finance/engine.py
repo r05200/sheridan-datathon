@@ -45,9 +45,19 @@ class Shock:
     recurring_costs: list[RecurringCost] = field(default_factory=list)
     scenario_duration_months: int | None = None
     overlap_acknowledged: bool = False
+    # Stacked scenarios: each part keeps its own duration and applies only during its own window.
+    # When parts are given, the top-level fields above are ignored.
+    parts: list[Shock] = field(default_factory=list)
+
+    @property
+    def window(self) -> int | None:
+        """Months this shock lasts; None = permanent."""
+        return self.scenario_duration_months or self.income_duration_months
 
     @property
     def is_empty(self) -> bool:
+        if self.parts:
+            return all(p.is_empty for p in self.parts)
         return (self.income_multiplier is None and self.household_bills_pct_change is None
                 and self.spending_pct_change is None and not self.one_off_costs and not self.recurring_costs)
 
@@ -85,6 +95,14 @@ def resolve_one_off(c: OneOffCost, spending: float) -> float:
 def shock_label(s: Shock) -> str:
     if s.is_empty:
         return "No shock"
+    if s.parts:
+        labels = []
+        for p in s.parts:
+            label = shock_label(p)
+            if p.window and p.income_multiplier is None:
+                label += f" for {p.window} months"
+            labels.append(label)
+        return "; ".join(labels)
     parts = []
     if s.income_multiplier is not None:
         pct = _num(round(s.income_multiplier * 100, 1))
@@ -102,12 +120,8 @@ def shock_label(s: Shock) -> str:
     return text[0].upper() + text[1:]
 
 
-def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Shock,
-               account_id: int | None = None, planning: PlanningOptions | None = None) -> dict[str, Any]:
-    income, spending, buffer = baseline["income"], baseline["spending"], baseline["buffer"]
-    bills = baseline["household_bills"]
-
-    # --- shock (judges' definitions) ---
+def _apply_single(shock: Shock, income: float, spending: float, bills: float) -> tuple[float, float]:
+    """Monthly income and spending while one shock is in effect (judges' definitions)."""
     income_after = income * (shock.income_multiplier if shock.income_multiplier is not None else 1.0)
     spending_after = spending
     if shock.household_bills_pct_change is not None:
@@ -129,7 +143,57 @@ def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Sh
     spending_after += sum(c.monthly_change for c in shock.recurring_costs)
     if spending_after < 0:
         raise ValueError("The requested reductions exceed recorded total spending.")
-    one_off_total = sum(resolve_one_off(c, spending) for c in shock.one_off_costs)
+    return income_after, spending_after
+
+
+def stacked_schedule(shock: Shock, income: float, spending: float, bills: float) -> list[tuple[float, float]]:
+    """Month-by-month (income, spending) for stacked parts, each applied only during its own window.
+
+    Every part starts in month 1; permanent parts (no duration) last the whole horizon. Income
+    multipliers multiply; spending changes add, each measured against the baseline.
+    """
+    deltas = []
+    for p in shock.parts:
+        if p.parts:
+            raise ValueError("Stacked scenarios cannot be nested.")
+        inc, sp = _apply_single(p, income, spending, bills)   # also validates the part on its own
+        factor = p.income_multiplier if p.income_multiplier is not None else 1.0
+        deltas.append((p.window, factor, sp - spending))
+    horizon = max((w for w, _, _ in deltas if w), default=1)
+    schedule = []
+    for month in range(1, horizon + 1):
+        active = [(f, d) for w, f, d in deltas if w is None or month <= w]
+        month_income = income * math.prod(f for f, _ in active)
+        month_spending = spending + sum(d for _, d in active)
+        if month_spending < 0:
+            raise ValueError("The requested reductions exceed recorded total spending.")
+        schedule.append((month_income, month_spending))
+    return schedule
+
+
+def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Shock,
+               account_id: int | None = None, planning: PlanningOptions | None = None) -> dict[str, Any]:
+    income, spending, buffer = baseline["income"], baseline["spending"], baseline["buffer"]
+    bills = baseline["household_bills"]
+
+    # --- shock (judges' definitions) ---
+    # A stacked shock whose parts have different windows is assessed month by month (schedule);
+    # otherwise every change is constant over one shared window, as before.
+    schedule: list[tuple[float, float]] | None = None
+    if shock.parts:
+        schedule = stacked_schedule(shock, income, spending, bills)
+        income_after, spending_after = schedule[0]       # month 1: every part is in effect
+        windows = {p.window for p in shock.parts}
+        duration = max((w for w in windows if w), default=None)
+        if len(windows) == 1:
+            schedule = None                              # one shared window: constant over it
+        one_offs = [c for p in shock.parts for c in p.one_off_costs]
+        recurring = [c for p in shock.parts for c in p.recurring_costs]
+    else:
+        income_after, spending_after = _apply_single(shock, income, spending, bills)
+        duration = shock.scenario_duration_months or shock.income_duration_months
+        one_offs, recurring = shock.one_off_costs, shock.recurring_costs
+    one_off_total = sum(resolve_one_off(c, spending) for c in one_offs)
     buffer_after = buffer - one_off_total          # one-off costs come out of the buffer
 
     gap_after = max(0.0, spending_after - income_after)
@@ -137,15 +201,27 @@ def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Sh
     after_runway = runway(buffer_after, income_after, spending_after)
 
     # An income shock that ends: the savings only need to cover the shock duration.
-    duration = shock.scenario_duration_months or shock.income_duration_months
     # A horizon assessment holds all supplied changes constant over this window.
     # It is not a forecast of conditions after income replacement ends.
     upfront_gap = max(0.0, -buffer_after)
     required_buffer = one_off_total + duration * gap_after if duration else None
+    ending_buffer = buffer_after + duration * (income_after - spending_after) if duration else None
+    buffer_path = None
+    if schedule:
+        # Stacked parts with different windows: the buffer must stay non-negative in every month,
+        # so the requirement is the deepest cumulative shortfall rather than duration x one gap.
+        cumulative, deepest, buffer_path = 0.0, 0.0, [_money(buffer_after)]
+        for month_income, month_spending in schedule:
+            cumulative += month_income - month_spending
+            deepest = min(deepest, cumulative)
+            buffer_path.append(_money(buffer_after + cumulative))
+        required_buffer = one_off_total - deepest
+        ending_buffer = buffer_after + cumulative
     funding_gap = max(0.0, required_buffer - buffer) if duration else None
 
     preferences = planning or PlanningOptions()
-    action_plan = build_action_plan(baseline, income_after, spending_after, one_off_total, duration, preferences)
+    action_plan = build_action_plan(baseline, income_after, spending_after, one_off_total, duration, preferences,
+                                    schedule=schedule)
 
     # --- goal plan: emergency fund of N months of spending, funded from baseline surplus ---
     target = preferences.target_months * spending
@@ -159,7 +235,13 @@ def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Sh
 
     # --- backup plan: cut flexible spending so savings last through the shock ---
     horizon = duration if duration else None       # None => permanent: cover the full gap
-    if gap_after <= 0:
+    if schedule:
+        # Smallest flat monthly cut that keeps the buffer non-negative at the end of every month.
+        cut_needed, cumulative = 0.0, 0.0
+        for month, (month_income, month_spending) in enumerate(schedule, 1):
+            cumulative += month_spending - month_income
+            cut_needed = max(cut_needed, (cumulative - max(buffer_after, 0.0)) / month)
+    elif gap_after <= 0:
         cut_needed = 0.0
     elif horizon:
         cut_needed = max(0.0, gap_after - max(buffer_after, 0.0) / horizon)
@@ -204,10 +286,10 @@ def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Sh
     }
     if planning is not None:
         plan["action_plan"] = action_plan
-    if shock.recurring_costs:
+    if recurring:
         plan["after_shock"]["recurring_adjustments"] = [
             {"label": c.label, "monthly_change": round(c.monthly_change, 2), "source": c.source}
-            for c in shock.recurring_costs
+            for c in recurring
         ]
     if duration:
         plan["duration_assessment"] = {
@@ -215,9 +297,14 @@ def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Sh
             "required_starting_buffer": math.ceil(round(required_buffer, 10)),
             "additional_buffer_needed": math.ceil(round(funding_gap, 10)),
             "covers_duration": buffer > 0 and funding_gap == 0,
-            "ending_buffer": _money(buffer_after + duration * (income_after - spending_after)),
+            "ending_buffer": _money(ending_buffer),
             "assumption": "All supplied shocks remain in effect over this assessment window.",
         }
+        if schedule:
+            plan["duration_assessment"]["assumption"] = (
+                "Each change applies only for its own duration within this window; the after-shock monthly "
+                "figures are for month 1, when every change is in effect.")
+            plan["duration_assessment"]["buffer_path"] = buffer_path
     if one_off_total:
         plan["after_shock"]["one_off_costs"] = _money(one_off_total)
         plan["after_shock"]["buffer"] = _money(buffer_after)

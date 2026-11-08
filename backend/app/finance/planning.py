@@ -39,7 +39,22 @@ def dollars(value):
     return f'${value:,.2f}'
 
 
-def build_action_plan(baseline, income_after, spending_after, one_off, duration, options):
+def _schedule_totals(schedule, extra_income, monthly_cut, start_buffer):
+    """For a month-by-month schedule: total net cash flow, the lowest cumulative point (<= 0), the largest
+    monthly gap, and the flat monthly improvement that keeps start_buffer non-negative in every month."""
+    cumulative = lowest = largest_gap = improvement = 0.0
+    for month, (month_income, month_spending) in enumerate(schedule, 1):
+        net = (month_income + extra_income) - (month_spending - monthly_cut)
+        cumulative += net
+        lowest = min(lowest, cumulative)
+        largest_gap = max(largest_gap, -net)
+        improvement = max(improvement, (-cumulative - max(start_buffer, 0)) / month)
+    return cumulative, lowest, largest_gap, improvement
+
+
+def build_action_plan(baseline, income_after, spending_after, one_off, duration, options, schedule=None):
+    """schedule: optional month-by-month (income, spending) for stacked shocks with different durations;
+    without it, income_after and spending_after are held constant over the duration."""
     options.validate()
     income, spending, buffer = baseline['income'], baseline['spending'], baseline['buffer']
     surplus = income - spending
@@ -108,6 +123,19 @@ def build_action_plan(baseline, income_after, spending_after, one_off, duration,
               'covered' if covered else 'funding_gap' if duration else
               'stabilized' if monthly_net >= 0 else 'needs_duration')
     maximum_spending = min(spending_after, adjusted_income + max(adjusted_buffer, 0) / duration) if duration else min(spending_after, adjusted_income)
+    if schedule:
+        # Stacked shocks with different windows: walk the months instead of holding month 1 constant.
+        total, lowest, largest_gap, improvement = _schedule_totals(
+            schedule, options.confirmed_extra_income, options.confirmed_monthly_cut, adjusted_buffer)
+        gap = largest_gap
+        horizon_need = up(one_off - lowest - buffer - options.confirmed_upfront_funds)
+        additional_improvement = up(improvement)
+        ending = adjusted_buffer + total
+        covered = adjusted_buffer >= 0 and adjusted_buffer + lowest >= 0
+        status = ('immediate_funding_gap' if upfront_remaining else 'covered' if covered else 'funding_gap')
+        # Highest month-1 spending the horizon allows, before any confirmed cut (as in the constant case).
+        *_, cut_free = _schedule_totals(schedule, options.confirmed_extra_income, 0, adjusted_buffer)
+        maximum_spending = min(spending_after, spending_after - cut_free)
     backup_steps = []
     if upfront_remaining:
         backup_steps.append(f'Arrange {dollars(upfront_remaining)} of immediate funding before the one-off expense '
@@ -147,6 +175,8 @@ def build_action_plan(baseline, income_after, spending_after, one_off, duration,
         'covers_duration_after_actions': covered,
         'steps': backup_steps,
         'assumption': 'Entered cuts and extra funds are user-confirmed scenario inputs, not recommendations inferred from withdrawals. '
-                      'All changes are held constant over the shared horizon; no borrowing or recovery is assumed.',
+                      + ('Each scenario change applies only for its own duration; confirmed cuts and extra income apply every month. '
+                         if schedule else 'All changes are held constant over the shared horizon; ')
+                      + 'no borrowing or recovery is assumed.',
     }
     return {'goal': goal, 'backup': backup}

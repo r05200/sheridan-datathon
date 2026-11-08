@@ -61,8 +61,18 @@ class ShockModel(BaseModel):
     recurring_costs: list[RecurringModel] = Field(default_factory=list)
     scenario_duration_months: int | None = Field(None, ge=1, le=60)
     overlap_acknowledged: bool = False
+    # Stacked scenarios, each applied only for its own duration. One level deep; top-level fields are ignored.
+    parts: list[ShockModel] = Field(default_factory=list, max_length=10)
+
+    @model_validator(mode="after")
+    def parts_not_nested(self):
+        if any(p.parts for p in self.parts):
+            raise ValueError("Stacked scenarios cannot be nested")
+        return self
 
     def to_engine(self) -> engine.Shock:
+        if self.parts:
+            return engine.Shock(parts=[p.to_engine() for p in self.parts])
         return engine.Shock(
             self.income_multiplier, self.income_duration_months, self.household_bills_pct_change,
             self.spending_pct_change,

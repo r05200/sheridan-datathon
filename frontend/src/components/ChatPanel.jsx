@@ -37,15 +37,15 @@ export default function ChatPanel({ c }) {
   const queryRef = useRef(null);
 
   // Keep the newest message in view; a just-sent message animates out of the text box.
+  // The card grows with its messages, so this scrolls the page rather than the list.
   useLayoutEffect(() => {
     const list = listRef.current;
     const last = c.messages.at(-1);
     if (!list || !last) return;
     if (last.morphFrom) {
-      list.scrollTop = list.scrollHeight;
       morph(list.lastElementChild, last.morphFrom);
     } else {
-      list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+      list.lastElementChild?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }, [c.messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -65,12 +65,6 @@ export default function ChatPanel({ c }) {
     }
   }
 
-  function reuse(q) {
-    if (c.busy) return;
-    setQuery(q);
-    queryRef.current.focus();
-  }
-
   return (
     <section className="chat-panel">
       <div className="panel-heading">
@@ -83,13 +77,6 @@ export default function ChatPanel({ c }) {
         {c.messages.map(m => (m.kind === 'interp'
           ? <Interpretation key={m.id} msg={m} busy={c.busy} onClarify={c.clarify} onApply={c.applyScenario} />
           : <div key={m.id} className={'message' + (m.user ? ' user' : '')}>{m.text}</div>))}
-      </div>
-      <div className="examples" id="recent-queries" aria-label="Recent queries" hidden={!c.recentQueries.length}>
-        {c.recentQueries.map(q => (
-          <button key={q} type="button" title={q} aria-label={'Reuse query: ' + q} disabled={c.busy} onClick={() => reuse(q)}>
-            <span className="recent-query-text">{q}</span><span aria-hidden="true">↗</span>
-          </button>
-        ))}
       </div>
       <form id="chat-form" onSubmit={send}>
         <label className="sr-only" htmlFor="query">Describe your financial shock</label>

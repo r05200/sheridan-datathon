@@ -23,8 +23,15 @@ export default function Interpretation({ msg, busy, onClarify, onApply }) {
 
   return (
     <div className="message">
-      <p><strong>{needsInput ? 'A little more detail' : 'Review your scenario'}</strong></p>
+      <p><strong>{needsInput ? 'A little more detail' : r.added ? 'Review your combined scenario' : 'Review your scenario'}</strong></p>
       <p>{r.interpretation || 'Please review the changes and assumptions below.'}</p>
+      {r.status === 'ok' && r.added && (
+        <>
+          <p>Adding:</p>
+          <ul className="changes">{describeChanges(r.added).map(x => <li key={x}>{x}</li>)}</ul>
+          <p>Combined with what's already applied:</p>
+        </>
+      )}
       {r.status === 'ok' && r.shock && (
         <ul className="changes">{describeChanges(r.shock).map(x => <li key={x}>{x}</li>)}</ul>
       )}

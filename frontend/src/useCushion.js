@@ -4,6 +4,14 @@ import { api } from './format.js';
 const GREETING = 'What would you like to stress-test? I’ll ask for an estimate if the account data doesn’t identify a cost.';
 const REPLACED = 'This interpretation has been replaced. Use the latest scenario.';
 const DEFAULT_ACCOUNT = 20134;
+const STACKED = 'Builds on your applied scenario: these changes are added to the ones already applied, and each keeps its own duration.';
+export const MAX_STACKED = 10;  // matches ShockModel.parts max_length in the API
+
+// Stack a new shock on top of the one already applied, so scenarios are cumulative. Each shock stays a
+// separate part with its own duration; the engine applies each part only during its own window.
+export function combineShocks(prev, next) {
+  return { shock: { parts: [...(prev.parts?.length ? prev.parts : [prev]), next] }, notes: [STACKED] };
+}
 
 const recentKey = id => 'runway:recentQueries:' + id;
 function readRecent(id) {
@@ -43,7 +51,18 @@ export function useCushion() {
   const addMessage = msg => setMessages(m => [...m, { id: ++nextId.current, ...msg }]);
   const say = (text, extra = {}) => addMessage({ kind: 'text', text, ...extra });
   const markDone = id => setMessages(m => m.map(x => (x.id === id ? { ...x, done: true } : x)));
-  const interpretation = result => addMessage({ kind: 'interp', result, revision: s.revision, done: false });
+  // A reviewable scenario is shown (and applied) on top of whatever is already applied.
+  const interpretation = result => {
+    if (result.status === 'ok' && result.shock && s.appliedShock) {
+      if ((s.appliedShock.parts?.length || 1) >= MAX_STACKED) {
+        say(`You can stack up to ${MAX_STACKED} changes. Load the account again to start a new scenario.`);
+        return;
+      }
+      const { shock, notes } = combineShocks(s.appliedShock, result.shock);
+      result = { ...result, shock, added: result.shock, assumptions: [...(result.assumptions || []), ...notes] };
+    }
+    addMessage({ kind: 'interp', result, revision: s.revision, done: false });
+  };
 
   function showPlan(p) {
     const token = ++s.planToken;

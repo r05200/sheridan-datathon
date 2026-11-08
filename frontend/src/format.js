@@ -40,6 +40,22 @@ export function baselineRunway(b) {
 export function describeChanges(s) {
   const out = [];
   const months = n => `${n} month${n === 1 ? '' : 's'}`;
+  if (s.parts?.length) {
+    // Stacked scenario: each part keeps its own duration.
+    let longest = 0;
+    for (const p of s.parts) {
+      const window = p.scenario_duration_months || p.income_duration_months;
+      longest = Math.max(longest, window || 0);
+      for (const line of describeChanges(p)) {
+        if (line.startsWith('Assessed over') || line === 'No changes from your baseline') continue;
+        const timed = /^(No income|Income) /.test(line) || line.endsWith(' one-off');
+        out.push(window && !timed ? `${line} for ${months(window)}` : line);
+      }
+    }
+    if (!out.length) out.push('No changes from your baseline');
+    if (longest) out.push(`Assessed over ${months(longest)}; each change lasts only for its own duration`);
+    return out;
+  }
   if (s.income_multiplier != null && s.income_multiplier !== 1) {
     const pct = Math.round(s.income_multiplier * 1000) / 10;
     out.push(pct === 0

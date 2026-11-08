@@ -24,13 +24,14 @@ function Metrics({ baseline: b, plan }) {
   );
 }
 
-export default function Dashboard({ hidden, view, show, c, accountInput, setAccountInput }) {
+export default function Dashboard({ hidden, view, show, isAdmin, c, accountInput, setAccountInput }) {
   const b = c.baseline;
   const planEmpty = view === 'plan' && !c.plan?.action_plan;
+  const meta = b ? `${b.months_of_history} observed months · Active loan payment ${cash(b.loan_payment)}/month` : 'Loading account…';
 
   function submitAccount(e) {
     e.preventDefault();
-    if (!c.busy) c.loadAccount(Number(accountInput));
+    if (isAdmin && !c.busy) c.loadAccount(Number(accountInput));
   }
 
   return (
@@ -41,17 +42,17 @@ export default function Dashboard({ hidden, view, show, c, accountInput, setAcco
           <h1>Your money,<br />a little clearer.</h1>
           <p className="sub">Explore an account. Apply a shock. Find the buffer you need.</p>
         </div>
+        {/* Same card in both modes; customers see their account ID read-only and get no Load button. */}
         <form id="account-form" className="account-box" onSubmit={submitAccount}>
           <label htmlFor="account-id">ACCOUNT</label>
           <div className="account-input">
-            <input id="account-id" type="number" min="1" list="accounts" required aria-label="Account ID"
-              value={accountInput} onChange={e => setAccountInput(e.target.value)} disabled={c.busy} />
-            <datalist id="accounts">{c.accountIds.map(id => <option key={id} value={id} />)}</datalist>
-            <button type="submit" disabled={c.busy}>Load account ↗</button>
+            <input id="account-id" type="number" min="1" list={isAdmin ? 'accounts' : undefined} required aria-label="Account ID"
+              value={isAdmin ? accountInput : c.account} onChange={e => setAccountInput(e.target.value)}
+              readOnly={!isAdmin} disabled={c.busy} />
+            {isAdmin && <datalist id="accounts">{c.accountIds.map(id => <option key={id} value={id} />)}</datalist>}
+            {isAdmin && <button type="submit" disabled={c.busy}>Load account ↗</button>}
           </div>
-          <small id="account-meta">
-            {b ? `${b.months_of_history} observed months · Active loan payment ${cash(b.loan_payment)}/month` : 'Loading account…'}
-          </small>
+          <small id="account-meta">{meta}</small>
         </form>
       </section>
 

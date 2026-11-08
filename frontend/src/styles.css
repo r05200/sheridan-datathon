@@ -14,7 +14,7 @@ header{height:82px;padding:0 5%;display:flex;align-items:center;gap:30px;border-
 .brand-dot{color:var(--orange)}
 .header-note{font-size:10px;letter-spacing:1.5px;color:var(--muted);margin-left:auto}
 .badge{background:#edf2ea;padding:8px 11px;border-radius:20px;font-size:11px}
-main{max-width:1680px;margin:auto;padding:42px 20px 0}
+main{max-width:1550px;margin:auto;padding:42px 3% 0}
 .intro{display:flex;justify-content:space-between;align-items:center;gap:30px;margin-bottom:42px}
 .eyebrow{font-size:10px;letter-spacing:2px;font-weight:700;color:#6f7d6a}
 h1{font-family:Manrope,system-ui;font-size:clamp(32px,3.3vw,48px);letter-spacing:-2px;line-height:1.14;margin:15px 0}
@@ -226,6 +226,18 @@ header{height:72px;background:#ffffffd9}
 .header-note{letter-spacing:1px}
 .badge{background:#fff0df;color:#a64c0c}
 
+/* Admin / customer mode switch, top right of the header */
+.mode-switch{display:flex;align-items:center;gap:10px;background:transparent;color:var(--muted);box-shadow:none;padding:6px 4px;border-radius:999px;font-size:11px;letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
+.mode-switch:hover{transform:none;filter:none;color:var(--ink)}
+.mode-switch:focus-visible{outline:2px solid var(--orange);outline-offset:3px}
+.mode-track{position:relative;width:40px;height:22px;border-radius:999px;background:#d9d4cc;transition:background .2s}
+.mode-thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:white;box-shadow:0 1px 3px #0003;transition:transform .2s}
+.mode-switch[aria-checked=true] .mode-track{background:var(--orange)}
+.mode-switch[aria-checked=true] .mode-thumb{transform:translateX(18px)}
+.account-input input[readonly]{cursor:default}
+.account-input input[readonly]:focus{outline:none}
+@media(max-width:800px){.mode-switch{margin-left:auto}}
+
 .cushion-tabs{display:flex;justify-content:center;gap:6px;padding:16px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
 .cushion-tabs button{background:transparent;color:var(--muted);box-shadow:none;padding:9px 22px}
 .cushion-tabs button[aria-current=page]{background:var(--orange);color:white;box-shadow:0 4px 12px #f5822033}
@@ -271,17 +283,27 @@ to{opacity:1;transform:translateY(0)}
 #dashboard,#user-database{animation:panel-in .35s ease-out}
 .workspace{margin-top:0}
 
-.database-banner{padding:40px max(5%,calc((100vw - 1280px)/2));background:linear-gradient(120deg,#ff9a3d,#f58220 45%,#e4620a);color:white}
+.database-banner{padding:40px max(3%,calc((100vw - 1550px)/2 + 3%));background:linear-gradient(120deg,#ff9a3d,#f58220 45%,#e4620a);color:white}
 .database-banner h1{font-size:44px;margin:10px 0}
 .database-banner .eyebrow{color:#fff1df}
-.database-content{max-width:1100px;margin:28px auto;padding:0 5%}
+.database-content{max-width:1550px;margin:28px auto;padding:0 3%}
 .database-content label{display:block;font-weight:bold;margin-bottom:10px}
 #user-search{width:100%;padding:17px;border-radius:14px;background:white}
 #user-count{color:var(--muted);font-size:12px}
-#user-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+#user-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:1100px){#user-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .account-card{display:flex;justify-content:space-between;align-items:center;text-align:left;border:1px solid var(--line);background:#fff;color:var(--ink);padding:20px;border-radius:16px;box-shadow:0 2px 8px #c8640a12}
 .account-card small{display:block;color:var(--muted);font-weight:400;margin-top:6px}
 .account-card span:last-child{color:var(--orange);font-size:23px}
+
+/* Account list pagination: ← Prev 1 2 3 … N Next → */
+.database-content{scroll-margin-top:16px}
+.pagination{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:6px;margin:28px 0 40px}
+.pagination button{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none;min-width:40px;height:40px;padding:0 12px;font-variant-numeric:tabular-nums}
+.pagination button:hover:not(:disabled){border-color:var(--orange);color:var(--orange);transform:none}
+.pagination button[aria-current=page]{background:var(--orange);border-color:var(--orange);color:#fff;box-shadow:0 4px 12px #f5822033}
+.pagination button:disabled{opacity:.4;cursor:default}
+.page-gap{color:var(--muted);padding:0 4px}
 
 body[data-view=customer] .workspace,body[data-view=stress] #customer-snapshot,body[data-view=plan] #customer-snapshot,body[data-view=plan] .chat-panel{display:none}
 body[data-view=customer] .intro{margin-bottom:28px}
@@ -329,31 +351,29 @@ body[data-view=plan] #planning-form{grid-template-columns:1fr}
 /* Stress test: chat on top at full width with a fixed, scrollable message area; results animate in once a scenario is applied. */
 body[data-view=stress] .workspace{grid-template-columns:1fr}
 
-/* Header + nav + intro bar + chat card add up to exactly one screen height: the page is a full-height column and the
-   chat card takes whatever is left. Only the message list scrolls. Once results are revealed (below the card) the
-   card keeps its 480px basis and the page scrolls normally. */
+/* By default the chat card fills the rest of the screen (header + nav + intro bar + card = one screen height).
+   It is a minimum, not a cap: as messages arrive the card grows downward and the page scrolls, rather than the
+   message list scrolling inside the card. */
 body[data-view=stress] #app-shell{display:flex;flex-direction:column;min-height:100dvh}
 body[data-view=stress] #dashboard{flex:1 0 auto;display:flex;flex-direction:column;width:100%;box-sizing:border-box}
 body[data-view=stress] .workspace{flex:1 0 auto;display:flex;flex-direction:column;align-items:stretch;gap:24px}
-body[data-view=stress] .chat-panel{display:flex;flex-direction:column;flex:1 0 480px;min-height:480px}
+body[data-view=stress] .chat-panel{display:flex;flex-direction:column;flex:1 0 auto;min-height:480px}
 body[data-view=stress] .intro{margin-bottom:20px}
 body[data-view=stress] footer{margin-top:16px;padding:14px 0}
 
-body[data-view=stress] .messages{flex:1 1 auto;min-height:0;max-height:none}
+body[data-view=stress] .messages{flex:1 0 auto;max-height:none;overflow:visible}
 
-body[data-view=stress] .message{font-size:17px;padding:18px 20px}
-
-body[data-view=stress] .message ul{font-size:16px}
+body[data-view=stress] .message{padding:18px 20px}
 
 body[data-view=stress] .message.user{align-self:stretch;max-width:100%;border-radius:14px;border-left:4px solid #f58220}
-
-body[data-view=stress] #query{font-size:17px}
 
 body[data-view=stress] .manual{max-height:45vh;overflow-y:auto}
 
 .message ul.changes{margin:6px 0 10px;line-height:1.7}
 
 body[data-view=stress] .results-panel:not(.revealed){display:none}
+
+.fine-print{color:var(--muted)}
 
 @keyframes results-in{from{opacity:0;transform:translateY(24px)}
 to{opacity:1;transform:none}
@@ -362,4 +382,34 @@ to{opacity:1;transform:none}
 .results-panel.revealed{animation:results-in .55s cubic-bezier(.2,.8,.2,1)}
 
 .account-input input{flex:1 1 160px;width:auto}
+
+/* Impact chart at ~60% width, with the four summary cards stacked on its right. */
+.impact-row{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px;align-items:stretch;margin-top:20px}
+.impact-row .chart{margin-top:0}
+.impact-row .mini-grid{grid-template-columns:1fr;grid-auto-rows:1fr;margin-top:0}
+@media(max-width:800px){.impact-row{grid-template-columns:1fr}}
+
+/* ---------------------------------------------------------------------------------------------
+   Type scale. Every text role uses one of these sizes so like elements match across pages.
+   Kept last so it wins over the scattered per-component sizes above. */
+:root{--fs-caption:12px;--fs-small:14px;--fs-body:16px;--fs-subtitle:22px;--fs-h3:20px;--fs-h2:28px;--fs-stat:26px}
+body{font-size:var(--fs-body)}
+/* Section headings and their subtitles */
+h2{font-size:var(--fs-h2)}
+.sub,.section-title span,.panel-heading p,.database-banner p:not(.eyebrow){font-size:var(--fs-subtitle);line-height:1.35}
+body[data-view=stress] .intro h1,body[data-view=plan] .intro h1{font-size:32px}
+/* Card headings */
+.outcome h3,.chart h3,.explanation h3,.plan-card h3,.empty h3{font-size:var(--fs-h3)}
+/* Body text */
+.message,.message ul,#query,.comparison,.outcome p,.explanation,.plan-status,.plan-steps,.plan-numbers,
+.plan-numbers>div,summary,#welcome-status{font-size:var(--fs-body)}
+/* Supporting text: notes under values, help text, form labels */
+.metric small,.mini small,.chart small,.plan-help,.plan-card small,.form-grid label,.clarify label,.step,
+.composer-footer small,.account-box small,details.data,.fine-print,#user-count{font-size:var(--fs-small)}
+/* Captions: eyebrows, field labels, table headers, badges, footer */
+.eyebrow,.account-box label,.metric label,.comparison th,.header-note,.badge,.mode-switch,footer,
+#database-count{font-size:var(--fs-caption)}
+/* Big numbers */
+.metric strong,.mini strong{font-size:var(--fs-stat)}
+@media(max-width:800px){:root{--fs-subtitle:18px;--fs-h2:24px;--fs-stat:22px}}
 
