@@ -1,16 +1,21 @@
 """FastAPI app. Run: uvicorn app.main:app --reload  (from backend/)"""
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 from pathlib import Path
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 
-from . import config, db, engine, explainer, shock_parser
+from . import config, engine, explainer, shock_parser
+from .db.config import build_url
+from .db import (AccountNotFound, DatabaseUnavailable, NoHistory, get_session, load_config, services,
+                 session_scope)
 from .shock_parser import LIMITS
 from .planning import PlanningOptions
 
@@ -86,14 +91,31 @@ class ParseRequest(BaseModel):
     account_id: int | None = None      # only used to show dollar amounts; never sent to Gemini
 
 
-def _not_found(e: db.AccountNotFound) -> HTTPException:
-    return HTTPException(404, str(e))
+@app.exception_handler(AccountNotFound)
+def _not_found(_, e: AccountNotFound):
+    return JSONResponse({"detail": str(e)}, status_code=404)
 
 
-@app.exception_handler(db.DatabaseUnavailable)
-def _db_down(_, e):
-    from fastapi.responses import JSONResponse
+@app.exception_handler(NoHistory)
+def _no_history(_, e: NoHistory):
+    return JSONResponse({"detail": str(e)}, status_code=422)
+
+
+@app.exception_handler(DatabaseUnavailable)
+def _db_down(_, e: DatabaseUnavailable):
     return JSONResponse({"detail": str(e)}, status_code=503)
+
+
+def _database_configured() -> bool:
+    try:
+        build_url(load_config())      # present and well-formed (does not connect)
+        return True
+    except DatabaseUnavailable:
+        return False
+
+
+def _without_id(obj) -> dict[str, Any]:
+    return {k: v for k, v in asdict(obj).items() if k != "account_id"}
 
 
 @app.get("/api/health")
@@ -101,26 +123,22 @@ def health() -> dict[str, Any]:
     return {"ok": True, "gemini_enabled": not config.gemini_disabled(),
             "gemini_model": config.gemini_model(),
             "gemini_timeout_seconds": config.GEMINI_TIMEOUT_S,
-            "database": "offline_export" if config.db_disabled() else "configured"}
+            "database": "configured" if _database_configured() else "not_configured"}
 
 
 @app.get("/api/accounts/{account_id}/baseline")
-def baseline(account_id: int) -> dict[str, Any]:
-    try:
-        return {"account_id": account_id, **db.get_account_baseline(account_id),
-                "loan_payment": db.get_loan_payment(account_id),
-                "flexible_spending": db.get_flexible_spending(account_id)}
-    except db.AccountNotFound as e:
-        raise _not_found(e)
+def baseline(account_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+    snap = services.get_account_snapshot(session, account_id)
+    return {"account_id": account_id, **_without_id(snap.baseline),
+            "loan_payment": snap.loan_payment, "flexible_spending": _without_id(snap.flexible)}
 
 
 @app.post("/api/plan")
-def plan(req: PlanRequest) -> dict[str, Any]:
+def plan(req: PlanRequest, session: Session = Depends(get_session)) -> dict[str, Any]:
     """Numbers only (fast). The UI shows these first, then calls /api/explain."""
     try:
-        return engine.plan_for_account(req.account_id, req.shock.to_engine(), PlanningOptions(**req.planning.model_dump()))
-    except db.AccountNotFound as e:
-        raise _not_found(e)
+        return engine.plan_for_account(session, req.account_id, req.shock.to_engine(),
+                                       PlanningOptions(**req.planning.model_dump()))
     except ValueError as e:
         raise HTTPException(422, str(e))
 
@@ -137,10 +155,9 @@ def explain(plan_json: dict[str, Any]) -> dict[str, str]:
 def parse_shock(req: ParseRequest) -> dict[str, Any]:
     base = None
     if req.account_id is not None:
-        try:
-            base = db.get_account_baseline(req.account_id)
-        except db.AccountNotFound as e:
-            raise _not_found(e)
+        # Session opened only when needed, so parsing still works with no database configured.
+        with session_scope() as session:
+            base = _without_id(services.get_account_baseline(session, req.account_id))
     return shock_parser.parse_shock(req.text, base)
 
 
@@ -154,20 +171,18 @@ class ResolveRequest(BaseModel):
 
 
 @app.post("/api/resolve-shock")
-def resolve_shock(req: ResolveRequest):
+def resolve_shock(req: ResolveRequest, session: Session = Depends(get_session)):
+    base = _without_id(services.get_account_baseline(session, req.account_id))
     try:
-        base = db.get_account_baseline(req.account_id)
         return shock_parser.resolve_draft(req.draft, base, req.category_amounts,
                                           req.duration_months, req.overlap_acknowledged, req.income_replacement_pct)
-    except db.AccountNotFound as e:
-        raise _not_found(e)
     except ValueError as e:
         raise HTTPException(422, str(e))
 
 
 @app.get("/api/accounts")
-def accounts():
-    return {"account_ids": sorted(db.get_all_baselines())}
+def accounts(session: Session = Depends(get_session)):
+    return {"account_ids": sorted(services.get_all_baselines(session))}
 
 
 STATIC = Path(__file__).resolve().parent.parent / "static"

@@ -5,6 +5,7 @@ from app import shock_parser as sp
 from conftest import FakeClient
 
 
+@pytest.mark.usefixtures('db_engine')
 def test_old_model_defaults_are_removed_and_other_changes_preserved():
     raw={'shock_found':True,'income_multiplier':.55,'income_duration_months':6,
          'scenario_duration_months':6,'one_off_costs':[{'label':'car','amount_dollars':20000}],
@@ -47,6 +48,7 @@ def test_bills_percentage_does_not_establish_replacement_income():
     assert r['status']=='needs_input' and r['draft']['income_multiplier'] is None
 
 
+@pytest.mark.usefixtures('db_engine')
 @pytest.mark.parametrize('value',[-1,151])
 def test_invalid_replacement_percent_rejected(value):
     with TestClient(app) as client:

@@ -91,6 +91,7 @@ def test_infeasible_and_invalid_planning_inputs_are_rejected(options):
     with pytest.raises(ValueError):make(**options)
 
 
+@pytest.mark.usefixtures('db_engine')
 def test_api_planning_and_explanation_contract(monkeypatch):
     with TestClient(app) as c:
         p=c.post('/api/plan',json={'account_id':20134,'shock':{'income_multiplier':0,'income_duration_months':3},

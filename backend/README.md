@@ -4,13 +4,17 @@ Python 3.10+ / FastAPI. Code computes; Gemini only translates (see the PRD).
 
 ```
 app/engine.py        runway, shock, goal plan, backup plan  -> the Explainer's input JSON
-app/db.py            the only DB module (Tiger Data/Postgres) + offline fallback export
+app/db/              the only DB package (Tiger Data/Postgres, SQLAlchemy 2.0): read-only, parameterized
+  config.py          build_engine(config): 5 s connect + statement timeouts, read-only transactions
+  session.py         engine singleton, session_scope(), get_session() (FastAPI dependency)
+  schema.py          account_metrics: one row per account, one column per value the frontend displays
+  errors.py          AccountNotFound, NoHistory, DatabaseUnavailable
+  types.py           frozen dataclasses returned by services (money as float)
+  services/          fetch-only functions, Session first: get_account_snapshot, list_account_ids, ...
 app/gemini_client.py shared client: configurable total budget, 1 retry, logging, JSON mode, temperature 0
 app/explainer.py     Part 1: Gemini explain -> number validation -> retry -> template fallback -> cache
 app/shock_parser.py  Part 2: text -> slider values, range validation, visible assumptions
 app/main.py          POST /api/plan, /api/explain, /api/parse-shock; GET /api/accounts/{id}/baseline
-sql/                 schema.sql, account_baseline.sql (the view)
-data/account_baseline.csv   offline export used when the database is unreachable (committed)
 ```
 
 ## Run
@@ -20,26 +24,42 @@ pip install -r requirements.txt
 cp .env.example .env            # add GEMINI_API_KEY / DATABASE_URL (never commit .env)
 uvicorn app.main:app --reload
 ```
-With no keys set it still works: baselines come from the offline export, explanations from the template, and the
-parser returns "Couldn't read that, please use the sliders."
+With no Gemini key, explanations come from the template and the parser returns "Couldn't read that, please use
+the sliders." There is no offline database fallback: if the database is not configured or unreachable, account
+endpoints return 503.
 
 ## Database setup (Tiger Data)
 ```
-DATABASE_URL=... python scripts/load_csvs.py /path/to/data   # tables, \copy-style load, view
-DATABASE_URL=... python scripts/check_db.py                   # row counts vs brief (185,326 / 682 / 4,500)
-python scripts/export_baseline.py /path/to/data               # refresh the offline export
+python scripts/setup_db.py /path/to/data --dry-run   # compute from the CSVs and summarize; no database
+python scripts/setup_db.py /path/to/data             # create account_metrics if missing, replace its rows
+python scripts/setup_db.py /path/to/data --reset     # drop and recreate first (after a schema change)
+python scripts/check_db.py                           # row count and how many accounts are filled in
 ```
+`/path/to/data` needs `monthly_summary.csv` and `loans.csv` (default `$TANGERINE_DATA_DIR` or `~/Downloads/data`).
+Connection: `DATABASE_URL`, or a JSON config at `DB_CONFIG_PATH` (default `backend/db_config.json`, git-ignored):
+`{"host": ..., "port": 5432, "user": ..., "password": ..., "dbname": ..., "sslmode": "require"}`.
+
+The only table is `account_metrics`: one row per account (4,500), one column per number the frontend
+displays. Baseline values follow the judges' definitions at full precision (`app/baseline_calc.py`); runway
+and goal-plan values are produced by the plan engine itself with no shock (`app/account_metrics.py`), so the
+stored numbers match the live app. Shock-dependent values are never stored. Loading takes about a second and
+runs in one transaction, so a failed run leaves the existing rows untouched. If the table's columns no longer
+match `app/db/schema.py`, the script stops and asks for `--reset`.
 
 ## Gemini
 `python scripts/gemini_smoke.py` (one test call) · `python scripts/pregenerate.py <account ids>` (cache demo accounts)
 
 ## Tests
 ```
-pytest                          # offline; Gemini faked
+pytest                          # Gemini faked; database tests skip without TEST_DATABASE_URL
 RUN_LIVE=1 pytest -m live -s    # 30 phrasings against the real API (needs GEMINI_API_KEY)
 ```
 Set `TANGERINE_DATA_DIR` if the CSVs are not in `~/Downloads/data` (CSV-based tests skip otherwise).
-Offline dry run: `GEMINI_DISABLED=1 DB_DISABLED=1 uvicorn app.main:app` with the network off.
+Database tests run against a local Postgres; the CSVs are loaded on first use (`TEST_DB_RELOAD=1` forces it):
+```
+docker run -d --rm --name tangerine-pg -e POSTGRES_PASSWORD=pg -p 55432:5432 postgres:16
+TEST_DATABASE_URL="postgresql://postgres:pg@127.0.0.1:55432/postgres?sslmode=disable" pytest
+```
 
 ## Calculation contract
 
@@ -60,8 +80,8 @@ Offline dry run: `GEMINI_DISABLED=1 DB_DISABLED=1 uvicorn app.main:app` with the
   required starting buffer, additional buffer needed, ending balance and whether
   the account covers that horizon. All entered changes are held constant during
   this assessment; there is no simulation of recovery or expenses after it ends.
-- Offline exports retain full source-derived precision. Refresh with
-  `python scripts/export_baseline.py /path/to/data`; round only API display values.
+- The database views return full source-derived precision (double precision);
+  round only API display values.
 
 Remaining scope: category-specific grocery/rent assumptions and independent shock
 timelines still require parser/UI work. These calculation corrections do not make

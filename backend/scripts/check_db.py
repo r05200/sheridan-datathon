@@ -1,23 +1,22 @@
-"""Connection check: prints row counts and compares with the brief."""
+"""Connection check: lists each table with its row count and how many accounts are filled in.
+
+Usage (from backend/): python scripts/check_db.py   (connection from backend/.env)
+"""
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from app import db  # noqa: E402
+from sqlalchemy import func, select  # noqa: E402
 
-EXPECTED = {"monthly_summary": 185_326, "loans": 682, "accounts": 4_500}
+from app.db import DatabaseError, services, session_scope  # noqa: E402
+from app.db.schema import metadata  # noqa: E402
+from app.db.services._common import run  # noqa: E402
 
 if __name__ == "__main__":
     try:
-        counts = db.table_counts()
-    except Exception as e:  # noqa: BLE001
+        with session_scope() as s:
+            for t in metadata.sorted_tables:
+                print(f"{t.name:18s}{run(s, select(func.count()).select_from(t)).scalar_one():>10,} rows")
+            print(f"{'baseline filled':18s}{len(services.get_all_baselines(s)):>10,} accounts")
+    except DatabaseError as e:
         sys.exit(f"Connection failed: {e}")
-    bad = False
-    for t, n in counts.items():
-        want = EXPECTED.get(t)
-        flag = "" if want is None or want == n else f"  <-- expected {want}"
-        bad |= bool(flag)
-        print(f"{t:16s}{n:>10,}{flag}")
-    n_view = len(db.get_all_baselines())
-    print(f"{'account_baseline':16s}{n_view:>10,}")
-    sys.exit(1 if bad else 0)

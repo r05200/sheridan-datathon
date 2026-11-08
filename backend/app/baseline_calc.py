@@ -1,6 +1,6 @@
 """Pandas reference implementation of the judges' baseline definitions.
 
-Used to build the offline export and to cross-check the SQL view in tests.
+Used in tests to cross-check the SQL views in app/db/schema.py against the raw CSVs.
 """
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pandas as pd
 
-from .db import EXPORT_COLUMNS
-
-LOAN_CUTOFF = pd.Timestamp("2025-12-31")
+COLUMNS = ["account_id", "income", "spending", "household_bills", "fixed_costs", "buffer",
+           "months_of_history", "card_withdrawals", "cash_withdrawals", "transfers_out_other",
+           "loan_payment"]
 
 
 def compute_baselines(data_dir: Path) -> pd.DataFrame:
     m = pd.read_csv(data_dir / "monthly_summary.csv")
-    loans = pd.read_csv(data_dir / "loans.csv", parse_dates=["loan_start"])
+    loans = pd.read_csv(data_dir / "loans.csv")
 
     m["fixed"] = m.household_bills + m.insurance + m.loan_payments
     g = m.groupby("account_id")
@@ -32,10 +32,8 @@ def compute_baselines(data_dir: Path) -> pd.DataFrame:
     last6 = m.sort_values("month").groupby("account_id").tail(6)
     out["buffer"] = last6.groupby("account_id").avg_daily_balance.mean()
 
-    end = loans.apply(lambda r: r.loan_start + pd.DateOffset(months=int(r.duration_months)), axis=1)
-    running = loans[end > LOAN_CUTOFF]
+    running = loans[loans.status.isin(["C", "D"])]        # judges: P counts for status C or D
     out["loan_payment"] = running.groupby("account_id").monthly_payment.sum()
     out["loan_payment"] = out["loan_payment"].fillna(0.0)
 
-    out = out.reset_index()
-    return out[EXPORT_COLUMNS]
+    return out.reset_index()[COLUMNS]

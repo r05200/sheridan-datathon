@@ -5,11 +5,13 @@ Rounding: dollars to whole numbers, months to 1 decimal. The explainer must reus
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 import math
 from typing import Any
 
-from . import db
+from sqlalchemy.orm import Session
+
+from .db import services
 from .planning import PlanningOptions, build_action_plan
 
 GOAL_MONTHS_OF_SPENDING = 3
@@ -222,6 +224,9 @@ def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Sh
     return plan
 
 
-def plan_for_account(account_id: int, shock: Shock, planning: PlanningOptions | None = None) -> dict[str, Any]:
-    return build_plan(db.get_account_baseline(account_id), db.get_flexible_spending(account_id),
-                      shock, account_id, planning)
+def plan_for_account(session: Session, account_id: int, shock: Shock,
+                     planning: PlanningOptions | None = None) -> dict[str, Any]:
+    snap = services.get_account_snapshot(session, account_id)
+    baseline = {k: v for k, v in asdict(snap.baseline).items() if k != "account_id"}
+    flexible = {k: v for k, v in asdict(snap.flexible).items() if k != "account_id"}
+    return build_plan(baseline, flexible, shock, account_id, planning)

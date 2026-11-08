@@ -5,6 +5,7 @@ data/processed/
 data2
 # Secrets (Gemini key, Tiger Data connection string) - never commit
 .env
+backend/db_config.json
 .env.*
 !.env.example
 *.pem

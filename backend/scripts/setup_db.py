@@ -1,0 +1,101 @@
+"""Create the database schema in Postgres (Tiger Data) and fill account_metrics from the CSVs.
+
+Usage (from backend/):
+  python scripts/setup_db.py [DATA_DIR] --dry-run   # compute and summarize; no database connection
+  python scripts/setup_db.py [DATA_DIR]             # create the table if missing, replace its rows
+  python scripts/setup_db.py [DATA_DIR] --reset     # drop and recreate first (after a schema change)
+
+DATA_DIR holds monthly_summary.csv and loans.csv; default $TANGERINE_DATA_DIR or ~/Downloads/data.
+Connection: backend/.env (DATABASE_URL, or DB_HOST/DB_USER/DB_PASSWORD/DB_NAME).
+The row replacement runs in one transaction, so a failure leaves the existing data untouched.
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from pathlib import Path
+from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from sqlalchemy import Engine, inspect  # noqa: E402
+from sqlalchemy.dialects import postgresql  # noqa: E402
+from sqlalchemy.schema import CreateTable  # noqa: E402
+
+from app.account_metrics import compute_account_metrics  # noqa: E402
+from app.db import build_engine, load_config  # noqa: E402
+from app.db.schema import account_metrics, metadata  # noqa: E402
+
+DEFAULT_DATA_DIR = Path(os.getenv("TANGERINE_DATA_DIR", Path.home() / "Downloads" / "data"))
+SOURCE_FILES = ("monthly_summary.csv", "loans.csv")
+
+
+def ddl() -> str:
+    return "\n".join(f"{str(CreateTable(t).compile(dialect=postgresql.dialect())).strip()};"
+                     for t in metadata.sorted_tables)
+
+
+def check_sources(data_dir: Path) -> None:
+    missing = [f for f in SOURCE_FILES if not (data_dir / f).exists()]
+    if missing:
+        raise SystemExit(f"Missing in {data_dir}: {', '.join(missing)} (pass DATA_DIR or set TANGERINE_DATA_DIR)")
+
+
+def summarize(rows: list[dict[str, Any]]) -> str:
+    n = len(rows)
+    return (f"{n:,} accounts: {sum(r['has_shortfall'] for r in rows):,} with a monthly shortfall "
+            f"({sum(r['runway_capped'] for r in rows):,} capped at 120 months), "
+            f"{sum(r['goal_months_to_goal'] == 0 for r in rows):,} already at the goal, "
+            f"{sum(r['goal_months_to_goal'] is None for r in rows):,} with the goal not reachable by saving")
+
+
+def schema_drift(engine: Engine) -> list[str]:
+    """Differences between the live account_metrics columns and schema.py (empty list = in sync)."""
+    live = {c["name"] for c in inspect(engine).get_columns(account_metrics.name)}
+    want = {c.name for c in account_metrics.columns}
+    return [*(f"missing in database: {c}" for c in sorted(want - live)),
+            *(f"extra in database: {c}" for c in sorted(live - want))]
+
+
+def load(engine: Engine, rows: list[dict[str, Any]], *, reset: bool = False) -> int:
+    """Create the table if needed and replace its rows in one transaction. Returns the row count."""
+    with engine.begin() as conn:
+        if reset:
+            metadata.drop_all(conn)
+        metadata.create_all(conn)
+    drift = schema_drift(engine)
+    if drift:
+        raise SystemExit("account_metrics does not match schema.py:\n  " + "\n  ".join(drift)
+                         + "\nRun again with --reset to recreate it.")
+    with engine.begin() as conn:
+        conn.execute(account_metrics.delete())
+        conn.execute(account_metrics.insert(), rows)
+    return len(rows)
+
+
+def main() -> None:
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("data_dir", nargs="?", type=Path, default=DEFAULT_DATA_DIR)
+    p.add_argument("--dry-run", action="store_true", help="compute and summarize only; no database connection")
+    p.add_argument("--reset", action="store_true", help="drop the table before creating it")
+    args = p.parse_args()
+
+    check_sources(args.data_dir)
+    rows = compute_account_metrics(args.data_dir)
+    print(summarize(rows))
+    if args.dry_run:
+        for r in rows[:3]:
+            print(r)
+        print(f"dry run: would {'recreate' if args.reset else 'create if missing'} account_metrics "
+              f"and load {len(rows):,} rows")
+        return
+    engine = build_engine(load_config(), read_only=False, statement_timeout_ms=0)
+    try:
+        n = load(engine, rows, reset=args.reset)
+    finally:
+        engine.dispose()
+    print(f"loaded {n:,} rows into account_metrics")
+
+
+if __name__ == "__main__":
+    main()

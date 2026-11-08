@@ -1,7 +1,10 @@
 """Challenge formula and funding-feasibility regressions."""
+from dataclasses import asdict
+
 import pytest
 
-from app import db, explainer
+from app import explainer
+from app.db import services
 from app.engine import OneOffCost, Shock, build_plan, runway
 
 
@@ -75,8 +78,9 @@ def test_goal_not_claimed_reached_when_small_positive_time_rounds_to_zero():
     assert "already have" not in explainer.template_explanation(p)["goal_plan_text"]
 
 
-def test_all_accounts_match_independent_reference_for_example_shocks():
-    for account, base in db.get_all_baselines().items():
+def test_all_accounts_match_independent_reference_for_example_shocks(session):
+    for account, baseline in services.get_all_baselines(session).items():
+        base = {k: v for k, v in asdict(baseline).items() if k != "account_id"}
         for shock in [Shock(), Shock(income_multiplier=.55, income_duration_months=6),
                       Shock(household_bills_pct_change=15),
                       Shock(income_multiplier=.55, household_bills_pct_change=15,
@@ -90,10 +94,10 @@ def test_all_accounts_match_independent_reference_for_example_shocks():
             assert p["after_shock"]["runway_months"] == expected, account
 
 
-def test_offline_export_retains_source_derived_precision_for_every_account(data_dir):
+def test_database_views_keep_full_precision_for_every_account(session, data_dir):
     from app.baseline_calc import compute_baselines
 
     reference = compute_baselines(data_dir).set_index("account_id")
-    for account, values in db.get_all_baselines().items():
+    for account, values in services.get_all_baselines(session).items():
         for field in ("income", "spending", "household_bills", "fixed_costs", "buffer"):
-            assert values[field] == pytest.approx(reference.loc[account, field], abs=1e-8, rel=0)
+            assert getattr(values, field) == pytest.approx(reference.loc[account, field], abs=1e-8, rel=0)

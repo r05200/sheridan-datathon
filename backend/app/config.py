@@ -25,14 +25,6 @@ def gemini_disabled() -> bool:
     return _flag("GEMINI_DISABLED") or gemini_api_key() is None
 
 
-def database_url() -> str | None:
-    return os.getenv("DATABASE_URL") or None
-
-
-def db_disabled() -> bool:
-    return _flag("DB_DISABLED") or database_url() is None
-
-
 def _timeout_seconds():
     value = float(os.getenv("GEMINI_TIMEOUT_S", "20"))
     if not 1 <= value <= 120:
@@ -41,6 +33,4 @@ def _timeout_seconds():
 
 
 GEMINI_TIMEOUT_S = _timeout_seconds()  # total per-operation budget, retries included
-DB_CONNECT_TIMEOUT_S = 5     # PRD: 5-second connection timeout
-OFFLINE_BASELINE_PATH = BACKEND_DIR / "data" / "account_baseline.csv"
 EXPLAIN_CACHE_PATH = BACKEND_DIR / "data" / "explain_cache.json"

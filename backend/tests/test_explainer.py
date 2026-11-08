@@ -3,7 +3,8 @@ import time
 
 import pytest
 
-from app import db, engine, explainer
+from app import engine, explainer
+from app.db import services
 from app.engine import NO_SHORTFALL, OneOffCost, Shock, build_plan
 from app.gemini_client import GeminiClient, GeminiError
 from conftest import FakeClient
@@ -137,13 +138,13 @@ SHOCKS = [
 ]
 
 
-def test_template_numbers_all_appear_in_input_for_50_accounts_x_3_shocks():
-    ids = sorted(db.get_all_baselines())[::90][:50]
+def test_template_numbers_all_appear_in_input_for_50_accounts_x_3_shocks(session):
+    ids = sorted(services.get_all_baselines(session))[::90][:50]
     assert len(ids) == 50
     checked = 0
     for acct in ids:
         for shock in SHOCKS:
-            plan = engine.plan_for_account(acct, shock)
+            plan = engine.plan_for_account(session, acct, shock)
             t = explainer.template_explanation(plan)
             assert explainer.invalid_numbers(t, plan) == [], (acct, shock, t)
             clean, why = explainer.validate(t, plan)

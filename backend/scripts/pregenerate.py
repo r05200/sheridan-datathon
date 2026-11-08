@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app import engine, explainer  # noqa: E402
+from app.db import session_scope  # noqa: E402
 from app.engine import OneOffCost, Shock  # noqa: E402
 
 DEMO_SHOCKS = [
@@ -19,8 +20,10 @@ DEMO_SHOCKS = [
 if __name__ == "__main__":
     ids = [int(a) for a in sys.argv[1:]] or sys.exit(__doc__)
     explainer.load_cache()
-    for acct in ids:
-        for shock in DEMO_SHOCKS:
-            out = explainer.explain_plan(engine.plan_for_account(acct, shock))
-            print(acct, shock.income_multiplier, out["source"])
+    with session_scope() as session:
+        plans = [(acct, shock, engine.plan_for_account(session, acct, shock))
+                 for acct in ids for shock in DEMO_SHOCKS]
+    for acct, shock, plan in plans:
+        out = explainer.explain_plan(plan)
+        print(acct, shock.income_multiplier, out["source"])
     explainer.save_cache()

@@ -81,6 +81,7 @@ def test_estimates_resolved_locally_not_sent_to_model():
     assert len(c.calls)==1 and '500' not in c.calls[0]['user']
 
 
+@pytest.mark.usefixtures('db_engine')
 def test_api_ui_and_clarification_to_plan_flow():
     with TestClient(app) as client:
         assert client.get('/').status_code==200
