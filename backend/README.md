@@ -8,7 +8,7 @@ app/db.py            the only DB module (Tiger Data/Postgres) + offline fallback
 app/gemini_client.py shared client: configurable total budget, 1 retry, logging, JSON mode, temperature 0
 app/explainer.py     Part 1: Gemini explain -> number validation -> retry -> template fallback -> cache
 app/shock_parser.py  Part 2: text -> slider values, range validation, visible assumptions
-app/main.py          POST /api/plan, /api/explain, /api/parse-shock; GET /api/accounts/{id}/baseline
+app/main.py          POST /api/plan, /api/explain, /api/parse-shock; GET baseline, account directory, and spotlights
 sql/                 schema.sql, account_baseline.sql (the view)
 data/account_baseline.csv   offline export used when the database is unreachable (committed)
 ```
@@ -38,7 +38,8 @@ python scripts/export_baseline.py /path/to/data               # refresh the offl
 pytest                          # offline; Gemini faked
 RUN_LIVE=1 pytest -m live -s    # 30 phrasings against the real API (needs GEMINI_API_KEY)
 ```
-Set `TANGERINE_DATA_DIR` if the CSVs are not in `~/Downloads/data` (CSV-based tests skip otherwise).
+`TANGERINE_DATA_DIR` selects the directory containing `monthly_summary.csv` and `loans.csv`; by default the
+app uses the repository's `data/` directory. Account profiles are read from `backend/data/customer_profiles.csv`.
 Offline dry run: `GEMINI_DISABLED=1 DB_DISABLED=1 uvicorn app.main:app` with the network off.
 
 ## Calculation contract
@@ -75,6 +76,26 @@ chat input, scenario review, clarification forms, before/after comparison,
 funding/goal/backup plans, explanation and a full-data inspector. Manual controls
 work without Gemini. Each new query describes a complete replacement scenario;
 chat history is not sent as conversational memory.
+
+The account baseline also returns historical stress signals, recent-versus-typical
+inflow and balance comparisons, an income-quartile/pension peer band, an EI-55%
+comparison for pension-majority accounts, and an eligible-only never-negative
+watchlist rank. The account page visualizes the last 12 months of inflows, outflows,
+and month-end balances, with progress indicators for selected historical measures.
+`GET /api/tangerine/accounts?filter=all` returns all 4,500 accounts;
+filters include `troubled_loans_healthy`, `no_loan_negative`, `negative`, and
+`watchlist`. `GET /api/tangerine/spotlights` serves three frozen account snapshots
+for offline demos. Rebuild them after changing source data with
+`python scripts/build_spotlights.py`.
+
+The watchlist is a relative, equal-weight ranking of low latest balance, low
+three-month surplus, and falling balance. It is not a probability, is withheld
+for accounts with any observed negative-balance month, and its retrospective
+six-month holdout is a small, single test rather than a forecast. The interface
+shows its top-5% hit rate and comparison to lowest-surplus-only at the same list
+size. All diagnostics are based on relabelled PKDD'99 Berka history; districts
+are Czech, groceries are not a recorded field, and category budgets and one-off
+prices are supplied by the user.
 
 Specific categories such as groceries/rent never automatically use total spending
 or the household-bills aggregate. `POST /api/parse-shock` may return `needs_input`

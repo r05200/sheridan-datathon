@@ -32,7 +32,102 @@ function rememberQuery(query){
 }
 function message(text,user=false){const el=document.createElement('div');el.className='message'+(user?' user':'');el.textContent=text;$('#messages').append(el);el.scrollIntoView({block:'nearest',behavior:'smooth'});return el;}
 function runway(obj){if(obj.runway_months==='no_shortfall')return 'No shortfall';return `${obj.runway_capped?'≥ ':''}${obj.runway_months} months`;}
-function renderBaseline(){const b=state.baseline,p=state.plan;const base=p?.baseline||{income:b.income,spending:b.spending,buffer:b.buffer,runway_months:b.buffer<=0?0:b.spending<=b.income?'no_shortfall':Math.min(b.buffer/(b.spending-b.income),120).toFixed(1),runway_capped:b.spending>b.income&&b.buffer/(b.spending-b.income)>120};const cards=[['Monthly inflows',cash(b.income),'Median recorded money in'],['Monthly spending',cash(b.spending),'Median recorded money out'],['Household bills',cash(b.household_bills),'Recorded category, not rent alone'],['Fixed costs',cash(b.fixed_costs),'Median of monthly bills + insurance + loans'],['Savings buffer',cash(b.buffer),'Mean balance over last six months'],['Baseline runway',runway(base),base.runway_capped?'Capped at 120 months':'Under typical conditions']];$('#metrics').innerHTML=cards.map((c,i)=>`<div class="metric ${i===4?'highlight':''}"><label>${c[0]}</label><strong>${c[1]}</strong><small>${c[2]}</small></div>`).join('');$('#account-meta').textContent=`${b.months_of_history} observed months · Active loan payment ${cash(b.loan_payment)}/month`;}
+function renderBaseline(){const b=state.baseline,p=state.plan;const base=p?.baseline||{income:b.income,spending:b.spending,buffer:b.buffer,runway_months:b.buffer<=0?0:b.spending<=b.income?'no_shortfall':Math.min(b.buffer/(b.spending-b.income),120).toFixed(1),runway_capped:b.spending>b.income&&b.buffer/(b.spending-b.income)>120};const cards=[['Monthly inflows',cash(b.income),'Median recorded money in'],['Monthly spending',cash(b.spending),'Median recorded money out'],['Household bills',cash(b.household_bills),'Recorded category, not rent alone'],['Fixed costs',cash(b.fixed_costs),'Median of monthly bills + insurance + loans'],['Savings buffer',cash(b.buffer),'Mean balance over last six months'],['Baseline runway',runway(base),base.runway_capped?'Capped at 120 months':'Under typical conditions']];$('#metrics').innerHTML=cards.map((c,i)=>`<div class="metric ${i===4?'highlight':''}"><label>${c[0]}</label><strong>${c[1]}</strong><small>${c[2]}</small></div>`).join('');$('#account-meta').textContent=`${b.months_of_history} observed months · Active loan payment ${cash(b.loan_payment)}/month`;renderStressInsights(b);}
+function renderHistoryCharts(series){
+ if(!series?.length)return '';
+ const width=720,height=220,left=52,right=12,top=18,bottom=38,plotWidth=width-left-right,plotHeight=height-top-bottom;
+ const maxFlow=Math.max(1,...series.flatMap(item=>[item.money_in,item.money_out]))*1.08;
+ const flowY=value=>top+plotHeight-(value/maxFlow)*plotHeight;
+ const step=plotWidth/series.length,barWidth=Math.min(13,step*.3);
+ const flowBars=series.map((item,index)=>{
+  const center=left+step*(index+.5),inY=flowY(item.money_in),outY=flowY(item.money_out);
+  return `<rect class="flow-in" x="${center-barWidth-1}" y="${inY}" width="${barWidth}" height="${top+plotHeight-inY}" rx="2"><title>${esc(item.month)} inflow: ${cash(item.money_in)}</title></rect><rect class="flow-out" x="${center+1}" y="${outY}" width="${barWidth}" height="${top+plotHeight-outY}" rx="2"><title>${esc(item.month)} outflow: ${cash(item.money_out)}</title></rect>`;
+ }).join('');
+ const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+ const monthLabels=series.map((item,index)=>index%2===0?`<text class="chart-label" x="${left+step*(index+.5)}" y="${height-12}" text-anchor="middle">${monthNames[Number(item.month.slice(5))-1]||esc(item.month)}</text>`:'').join('');
+ const minBalance=Math.min(0,...series.map(item=>item.month_end_balance)),maxBalance=Math.max(0,...series.map(item=>item.month_end_balance));
+ const balancePad=Math.max((maxBalance-minBalance)*.08,1),balanceMin=minBalance-balancePad,balanceMax=maxBalance+balancePad;
+ const balanceY=value=>top+plotHeight-((value-balanceMin)/(balanceMax-balanceMin))*plotHeight;
+ const balancePoints=series.map((item,index)=>`${left+step*(index+.5)},${balanceY(item.month_end_balance)}`).join(' ');
+ const zeroY=balanceY(0);
+ const compact=value=>value===0?'$0':`${value<0?'−':''}$${Math.round(Math.abs(value)/1000)}k`;
+ return `<div class="history-visuals">
+  <article class="history-chart"><div class="chart-heading"><h3>Money in and out each month</h3><span>Last ${series.length} recorded months</span></div>
+   <div class="chart-legend"><span><i class="legend-in"></i>Money in</span><span><i class="legend-out"></i>Money out</span></div>
+   <svg class="account-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Monthly money in and money out for the last ${series.length} recorded months">
+    <line class="chart-gridline" x1="${left}" y1="${top}" x2="${width-right}" y2="${top}"/><line class="chart-axis" x1="${left}" y1="${top+plotHeight}" x2="${width-right}" y2="${top+plotHeight}"/>
+    <text class="chart-label" x="${left-8}" y="${top+4}" text-anchor="end">${cash(maxFlow/1.08)}</text>${flowBars}${monthLabels}
+   </svg>
+   <p class="chart-caption">Bars compare recorded inflows and outflows; they do not categorize spending.</p>
+  </article>
+  <article class="history-chart"><div class="chart-heading"><h3>Month-end balance</h3><span>Recorded balance over time</span></div>
+   <div class="chart-legend"><span><i class="legend-balance"></i>Balance</span><span><i class="legend-zero"></i>$0 line</span></div>
+   <svg class="account-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Month-end balance for the last ${series.length} recorded months; the dashed line marks zero">
+    <line class="chart-gridline" x1="${left}" y1="${top}" x2="${width-right}" y2="${top}"/><line class="chart-zero" x1="${left}" y1="${zeroY}" x2="${width-right}" y2="${zeroY}"/>
+    <text class="chart-label" x="${left-8}" y="${top+4}" text-anchor="end">${compact(maxBalance)}</text><text class="chart-label" x="${left-8}" y="${top+plotHeight}" text-anchor="end">${compact(minBalance)}</text>
+    <polyline class="balance-line" points="${balancePoints}"/>${series.map((item,index)=>`<circle class="balance-point" cx="${left+step*(index+.5)}" cy="${balanceY(item.month_end_balance)}" r="3"><title>${esc(item.month)} month-end balance: ${cash(item.month_end_balance)}</title></circle>`).join('')}${monthLabels}
+   </svg>
+   <p class="chart-caption">A month-end value is a snapshot; it does not show every balance change during the month.</p>
+  </article>
+ </div>`;
+}
+function renderStressInsights(b){
+ const s=b.stress;
+ if(!s){$('#stress-insights').replaceChildren();return;}
+ const peer=b.peer_context,pension=b.pension_check,w=b.watchlist,v=w.validation;
+ const share=s.cash_withdrawal_share==null?'—':`${(s.cash_withdrawal_share*100).toFixed(1)}%`;
+ const shareValue=Math.max(0,Math.min(100,(s.cash_withdrawal_share||0)*100));
+ const negativeRate=s.observations?100*s.negative_month_count/s.observations:0;
+ const peerPercentile=Math.max(0,Math.min(100,peer.runway_percentile));
+ const runwayText=(status,months)=>status==='no_shortfall'?'No monthly shortfall':`${months} months`;
+ const balanceChange=Math.abs(s.balance_trend.recent_vs_prior_3_month_mean_change);
+ const balanceDirection=s.balance_trend.falling?'lower':balanceChange===0?'the same':'higher';
+ const rankPosition=w.eligible_accounts?100*(w.rank-.5)/w.eligible_accounts:0;
+ const summary=s.negative_month_count>0
+  ?`${s.negative_month_count} months in the recorded history had at least one day below $0.`
+  :'No day below $0 appears in the recorded history.';
+ const html=`<section class="stress-block" aria-labelledby="stress-title">
+  <div class="stress-heading">
+   <div><p class="eyebrow">A closer look at the history</p><h2 id="stress-title">What the account history shows</h2><p>${summary} These are historical signals, not a prediction.</p></div>
+  </div>
+  <div class="stress-grid">
+   <article class="stress-stat ${s.negative_month_count?'warning':''}"><small>Months with a day below $0</small><strong>${s.negative_month_count} <span>of ${s.observations}</span></strong><progress class="signal-progress negative-progress" max="100" value="${negativeRate}" aria-label="${negativeRate.toFixed(1)} percent of observed months had a day below zero"></progress><p>A month is counted if the balance went below zero on any day.</p></article>
+   <article class="stress-stat ${s.worst_observed_balance<0?'warning':''}"><small>Lowest recorded balance</small><strong>${cash(s.worst_observed_balance)}</strong><p>Lowest point seen in the available history.</p></article>
+   <article class="stress-stat"><small>Cash withdrawals</small><strong>${share}</strong><progress class="signal-progress cash-progress" max="100" value="${shareValue}" aria-label="${share} of recorded money out was cash withdrawals"></progress><p>Share of recorded money out. Withdrawals are not assumed to be optional spending.</p></article>
+   <article class="stress-stat"><small>Loan payments</small><div class="stress-pair"><span><strong>${cash(s.loan_contract_monthly_payment)}</strong><small>Scheduled amount</small></span><span><strong>${cash(s.median_observed_loan_payment)}</strong><small>Typical recorded month</small></span></div><p>${esc(s.loan_status_meaning)}. Recorded payments can be zero in months without a payment.</p></article>
+  </div>
+  ${renderHistoryCharts(s.monthly_history)}
+  <div class="insight-panels">
+   <article class="insight-panel ${s.income_trend.median_overstates_recent?'warning':''}">
+    <h3>Is income lower recently?</h3>
+    <p>Last 3 months: <strong>${cash(s.income_trend.recent_3_month_median)}</strong> per month</p>
+    <p>Full-history typical: <strong>${cash(s.income_trend.official_full_history_median)}</strong> per month</p>
+    <p class="insight-takeaway">${s.income_trend.median_overstates_recent?'Recent income is at least 20% below the full-history median.':'No recent-income drop of 20% or more.'}</p>
+   </article>
+   <article class="insight-panel ${s.balance_trend.falling?'warning':''}">
+    <h3>Is the balance falling?</h3>
+    <p>Recent three-month average balance is <strong>${cash(balanceChange)}</strong> ${balanceDirection} than the previous three-month average.</p>
+    <p class="insight-takeaway">${s.balance_trend.falling?'The recent balance trend is downward.':'No downward trend in this comparison.'}</p>
+   </article>
+   <article class="insight-panel">
+    <h3>Compared with similar accounts</h3>
+    <p>${esc(peer.income_band)} · ${peer.pension_majority?'mostly pension income':'not mostly pension income'} · ${peer.peer_count.toLocaleString()} accounts.</p>
+    <p>This account’s official runway is longer than about <strong>${peer.runway_percentile}%</strong> of this group. ${peer.peer_capped_share}% of the group is shown at the 120-month cap.</p>
+    <progress class="signal-progress peer-progress" max="100" value="${peerPercentile}" aria-label="Runway percentile ${peer.runway_percentile} percent within the peer group"></progress><div class="progress-labels"><span>Shorter runway</span><span>Longer runway</span></div>
+   </article>
+   <article class="insight-panel">
+    <h3>Watchlist (never-negative accounts only)</h3>
+    <p>${w.eligible?`Relative band: <strong>${esc(w.band)}</strong> · position ${w.rank.toLocaleString()} of ${w.eligible_accounts.toLocaleString()}.`:'Not ranked: this account has a recorded month with a day below $0.'}</p>
+    ${w.eligible?`<div class="watchlist-scale" role="img" aria-label="Watchlist position ${w.rank} of ${w.eligible_accounts}; lower rank is higher priority"><span class="watch-priority"></span><span class="watch-watch"></span><span class="watch-routine"></span><i style="--rank-position:${rankPosition}%"></i></div><div class="progress-labels"><span>Higher priority</span><span>Lower priority</span></div>`:''}
+    <p>This is a sorting aid, not a chance or probability.</p>
+    <details class="validation-detail"><summary>How did this sorting rule do in a past six-month check?</summary><p>Of ${v.priority_band_size} flagged accounts (the top 5%), ${v.priority_band_events} later went below $0: ${(v.priority_band_hit_rate*100).toFixed(1)}% of flagged accounts. The list included ${v.priority_band_events} of ${v.later_event_accounts} later events (${(v.later_events_captured_pct*100).toFixed(1)}%). Lowest recent surplus alone found ${v.lowest_surplus_same_size_events} events in a list of the same size. This is one historical check, not a forecast.</p></details>
+   </article>
+  </div>
+  ${pension?`<article class="insight-panel pension-note"><h3>Pension income comparison</h3><p>Official runway: <strong>${runwayText(pension.official_baseline_runway_status,pension.official_baseline_runway_months)}</strong>. EI-at-55% comparison: <strong>${runwayText(pension.ei55_runway_status,pension.ei55_runway_months)}</strong>.</p><p>Employment Insurance does not apply to pension income. The EI figure is an illustrative comparison only.</p></article>`:''}
+  <details class="data-source-note"><summary>About these numbers and data limits</summary><p>${esc(s.data_note)} The source is relabelled PKDD'99 Berka history; districts are Czech, groceries are not a recorded field, and category budgets or one-off prices are user-supplied.</p></details>
+ </section>`;
+ $('#stress-insights').innerHTML=html;
+}
 function renderResults(){const p=state.plan,b=state.baseline;if(!p){$('#results').innerHTML='<div class="empty"><div class="empty-icon">↗</div><h3>One change can tell a bigger story.</h3><p>Describe a scenario to compare your starting point<br>with what happens next.</p></div>'+`<details class="data"><summary>Explore the full account baseline</summary><pre>${esc(JSON.stringify(b,null,2))}</pre></details>`;return;}
 const a=p.after_shock;const rows=[['Monthly inflows',cash(p.baseline.income),cash(a.income)],['Monthly spending',cash(p.baseline.spending),cash(a.spending)],['Buffer after immediate costs',cash(p.baseline.buffer),cash(a.buffer)],['Monthly shortfall',cash(Math.max(b.spending-b.income,0)),cash(a.monthly_gap)],['Runway',runway(p.baseline),runway(a)],['Immediate expense','—',cash(a.one_off_costs||0)]];
 let html=`<table class="comparison"><thead><tr><th>Account ${state.account}</th><th>Before</th><th>After</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody></table>`;

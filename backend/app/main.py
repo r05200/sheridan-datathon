@@ -10,7 +10,7 @@ from pathlib import Path
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, db, engine, explainer, shock_parser
+from . import config, db, engine, explainer, insights, shock_parser
 from .shock_parser import LIMITS
 from .planning import PlanningOptions
 
@@ -107,11 +107,15 @@ def health() -> dict[str, Any]:
 @app.get("/api/accounts/{account_id}/baseline")
 def baseline(account_id: int) -> dict[str, Any]:
     try:
-        return {"account_id": account_id, **db.get_account_baseline(account_id),
-                "loan_payment": db.get_loan_payment(account_id),
-                "flexible_spending": db.get_flexible_spending(account_id)}
+        payload = {"account_id": account_id, **db.get_account_baseline(account_id),
+                   "loan_payment": db.get_loan_payment(account_id),
+                   "flexible_spending": db.get_flexible_spending(account_id)}
+        payload.update(insights.account_insights(account_id))
+        return payload
     except db.AccountNotFound as e:
         raise _not_found(e)
+    except insights.InsightsUnavailable as e:
+        raise HTTPException(503, str(e)) from None
 
 
 @app.post("/api/plan")
@@ -168,6 +172,24 @@ def resolve_shock(req: ResolveRequest):
 @app.get("/api/accounts")
 def accounts():
     return {"account_ids": sorted(db.get_all_baselines())}
+
+
+@app.get("/api/tangerine/accounts")
+def tangerine_accounts(filter: str = "all") -> dict[str, Any]:
+    try:
+        return insights.account_directory(filter)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    except insights.InsightsUnavailable as e:
+        raise HTTPException(503, str(e)) from None
+
+
+@app.get("/api/tangerine/spotlights")
+def tangerine_spotlights() -> dict[str, Any]:
+    try:
+        return insights.spotlight_snapshots()
+    except insights.InsightsUnavailable as e:
+        raise HTTPException(503, str(e)) from None
 
 
 STATIC = Path(__file__).resolve().parent.parent / "static"
