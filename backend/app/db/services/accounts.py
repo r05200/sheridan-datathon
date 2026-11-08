@@ -15,8 +15,16 @@ from ._common import build, run
 _BASELINE_REQUIRED = ("income", "spending", "household_bills", "fixed_costs", "buffer", "months_of_history")
 
 
+_FLEXIBLE = ("card_withdrawals", "cash_withdrawals", "transfers_out_other")
+
+
 def _filled():
     return [m.c[c].is_not(None) for c in _BASELINE_REQUIRED]
+
+
+def _flexible(row: Any) -> FlexibleSpending:
+    """A blank flexible-spending value means nothing recorded to cut, so 0.0 (the plan engine does arithmetic on it)."""
+    return build(FlexibleSpending, row, **{c: float(row[c] or 0.0) for c in _FLEXIBLE})
 
 
 def _row(session: Session, account_id: int) -> Any:
@@ -38,7 +46,7 @@ def get_account_snapshot(session: Session, account_id: int) -> AccountSnapshot:
     return AccountSnapshot(
         account_id=account_id,
         baseline=build(Baseline, row),
-        flexible=build(FlexibleSpending, row),
+        flexible=_flexible(row),
         loan_payment=float(row["loan_payment"] or 0.0),
         metrics=build(BaselineMetrics, row),
     )
@@ -49,7 +57,7 @@ def get_account_baseline(session: Session, account_id: int) -> Baseline:
 
 
 def get_flexible_spending(session: Session, account_id: int) -> FlexibleSpending:
-    return build(FlexibleSpending, _row(session, account_id))
+    return _flexible(_row(session, account_id))
 
 
 def get_loan_payment(session: Session, account_id: int) -> float:
