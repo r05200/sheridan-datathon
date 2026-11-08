@@ -52,7 +52,7 @@ export default function UserDatabase({ hidden, ids, onOpen }) {
   return (
     <section id="user-database" hidden={hidden}>
       <div className="database-banner">
-        <p className="eyebrow">YOUR FINANCIAL WHAT-IF LAB</p>
+        <p className="eyebrow">YOUR FINANCIAL MONITORING LAB</p>
         <h1>User database</h1>
         <p>Find a customer and open their money snapshot.</p>
         <span id="database-count">{ids.length.toLocaleString()} accounts · anonymized challenge data</span>

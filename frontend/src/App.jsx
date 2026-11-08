@@ -3,8 +3,9 @@ import { useCushion } from './useCushion.js';
 import Welcome from './components/Welcome.jsx';
 import UserDatabase from './components/UserDatabase.jsx';
 import Dashboard from './components/Dashboard.jsx';
+import DataLineage from './components/DataLineage.jsx';
 
-const VIEWS = ['users', 'customer', 'stress', 'plan'];
+const VIEWS = ['users', 'customer', 'stress', 'plan', 'data'];   // 'data' (lineage screen) has no tab
 const TABS = [['users', '← Accounts'], ['customer', 'Customer'], ['stress', 'Stress Test'], ['plan', 'Plan']];
 const MODE_KEY = 'cushion:mode';
 
@@ -64,8 +65,9 @@ export default function App() {
           ))}
         </nav>
         {isAdmin && <UserDatabase hidden={view !== 'users'} ids={c.accountIds} onOpen={openAccount} />}
+        {view === 'data' && <DataLineage baseline={c.baseline} account={c.account} onBack={() => show('customer')} />}
         <Dashboard
-          hidden={view === 'users'}
+          hidden={view === 'users' || view === 'data'}
           view={view}
           show={show}
           isAdmin={isAdmin}
