@@ -63,7 +63,7 @@ export default function App() {
             <button key={v} type="button" aria-current={view === v ? 'page' : undefined} onClick={() => show(v)}>{label}</button>
           ))}
         </nav>
-        {isAdmin && <UserDatabase hidden={view !== 'users'} ids={c.accountIds} onOpen={openAccount} />}
+        {isAdmin && <UserDatabase hidden={view !== 'users'} onOpen={openAccount} />}
         <Dashboard
           hidden={view === 'users'}
           view={view}

@@ -1,6 +1,15 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { api, cash, runway } from '../format.js';
+import PortfolioSummary from './PortfolioSummary.jsx';
 
 const PAGE_SIZE = 36;  // divisible by 4, 3, 2 and 1, so every column layout fills its last row
+const FILTERS = [
+  ['all', 'All accounts'],
+  ['troubled_loans_healthy', 'Defaulted/debt loan · no formula shortfall'],
+  ['no_loan_negative', 'No loan · prior negative balance'],
+  ['negative', 'Any prior negative-balance month'],
+  ['watchlist', 'Never-negative watchlist'],
+];
 
 // Page numbers to show: first, last, and the current page with its neighbours; '…' fills larger gaps.
 // e.g. page 1 of 40 → 1 2 3 … 40; page 7 → 1 … 6 7 8 … 40; page 40 → 1 … 38 39 40.
@@ -33,12 +42,25 @@ function Pagination({ page, total, onPage }) {
   );
 }
 
-export default function UserDatabase({ hidden, ids, onOpen }) {
+export default function UserDatabase({ hidden, onOpen }) {
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [directory, setDirectory] = useState(null);
+  const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const listTop = useRef(null);
+  useEffect(() => {
+    let active = true;
+    setDirectory(null);
+    setError('');
+    api('/api/tangerine/accounts?filter=' + encodeURIComponent(filter))
+      .then(result => { if (active) setDirectory(result); })
+      .catch(e => { if (active) setError(e.message); });
+    return () => { active = false; };
+  }, [filter]);
+
   const q = search.trim();
-  const matching = ids.filter(id => String(id).includes(q));
+  const matching = (directory?.accounts || []).filter(account => String(account.account_id).includes(q));
   const totalPages = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
   const current = Math.min(page, totalPages);
   const start = (current - 1) * PAGE_SIZE;
@@ -53,28 +75,49 @@ export default function UserDatabase({ hidden, ids, onOpen }) {
     <section id="user-database" hidden={hidden}>
       <div className="database-banner">
         <p className="eyebrow">YOUR FINANCIAL WHAT-IF LAB</p>
-        <h1>User database</h1>
-        <p>Find a customer and open their money snapshot.</p>
-        <span id="database-count">{ids.length.toLocaleString()} accounts · anonymized challenge data</span>
+        <h1>Account directory</h1>
+        <p>Explore portfolio patterns, then open an account’s financial history.</p>
+        <span id="database-count">{directory ? `${directory.total_accounts.toLocaleString()} accounts · data through ${directory.as_of}` : 'Loading account directory…'}</span>
+      </div>
+      <div className="database-content">
+        <PortfolioSummary />
       </div>
       <div className="database-content" ref={listTop}>
-        <label htmlFor="user-search">Search by account ID</label>
-        <input id="user-search" type="search" placeholder="Enter an account ID…" value={search}
-          onChange={e => { setSearch(e.target.value); setPage(1); }} />
+        <div className="directory-controls">
+          <label htmlFor="user-search">Search by account ID
+            <input id="user-search" type="search" placeholder="Enter an account ID…" value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1); }} />
+          </label>
+          <label htmlFor="account-filter">Explore a cohort
+            <select id="account-filter" value={filter} onChange={e => { setFilter(e.target.value); setPage(1); }}>
+              {FILTERS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+        </div>
+        {error && <p className="notice error" role="alert">Account directory unavailable: {error}</p>}
         <p id="user-count" aria-live="polite">
-          {matching.length.toLocaleString()} matching accounts
+          {directory ? `${matching.length.toLocaleString()} ${directory.filter_label.toLowerCase()}` : 'Loading matching accounts…'}
           {matching.length > PAGE_SIZE
-            ? ` · showing ${(start + 1).toLocaleString()}–${(start + shown.length).toLocaleString()} · page ${current} of ${totalPages}`
+            ? ` · showing ${(start + 1).toLocaleString()} to ${(start + shown.length).toLocaleString()} · page ${current} of ${totalPages}`
             : ''}
         </p>
         <div id="user-list">
-          {shown.map(id => (
-            <button key={id} type="button" className="account-card" onClick={() => onOpen(id)}>
-              <span>Account {id}<small>Open money snapshot</small></span>
-              <span aria-hidden="true">↗</span>
+          {shown.map(account => (
+            <button key={account.account_id} type="button" className="account-card directory-account" onClick={() => onOpen(account.account_id)}>
+              <span className="directory-account-identity">
+                <strong>Account {account.account_id}</strong>
+                <small>Latest balance {cash(account.latest_balance)}</small>
+              </span>
+              <span className="directory-runway">{runway(account)}</span>
+              <span className="directory-indicators">
+                {account.past_negative_month && <i className="indicator warning" title="Prior negative-balance month" aria-label="Prior negative-balance month">!</i>}
+                {['B', 'D'].includes(account.loan_status) && <i className="indicator priority" title={account.loan_status_meaning} aria-label={account.loan_status_meaning}>↗</i>}
+              </span>
+              <span className="directory-arrow" aria-hidden="true">↗</span>
             </button>
           ))}
         </div>
+        {directory && shown.length === 0 && <p className="empty">No accounts match this search.</p>}
         <Pagination page={current} total={totalPages} onPage={goTo} />
       </div>
     </section>

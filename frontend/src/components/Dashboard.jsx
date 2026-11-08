@@ -2,6 +2,8 @@ import { baselineRunway, cash, runway } from '../format.js';
 import ChatPanel from './ChatPanel.jsx';
 import ResultsPanel, { Explanation } from './ResultsPanel.jsx';
 import ActionPlan from './ActionPlan.jsx';
+import AccountInsights from './AccountInsights.jsx';
+import PlanContext from './PlanContext.jsx';
 
 // Plan tab: the goal plan always; with an applied scenario, a one-line scenario card on top plus the backup plan.
 function PlanView({ c, plan, show }) {
@@ -9,6 +11,7 @@ function PlanView({ c, plan, show }) {
     <div className="plan-view">
       <ActionPlan key={c.planVersion} plan={plan} scenario={c.plan} onEditScenario={() => show('stress')}
         planning={c.planning} busy={c.busy} error={c.planningError} onSubmit={c.recalculatePlan} />
+      <PlanContext plan={plan} />
       {c.plan ? <Explanation state={c.explanation} /> : (
         <div className="add-stress">
           <p>Want to see how a job loss, rent hike or surprise bill would change this? Add a stress test to get a backup plan.</p>
@@ -45,7 +48,7 @@ export default function Dashboard({ hidden, view, show, isAdmin, c, accountInput
   const b = c.baseline;
   const activePlan = c.plan?.action_plan ? c.plan : c.basePlan?.action_plan ? c.basePlan : null;
   const planEmpty = view === 'plan' && !activePlan;
-  const meta = b ? `${b.months_of_history} observed months · Active loan payment ${cash(b.loan_payment)}/month` : 'Loading account…';
+  const meta = b ? `${b.months_of_history} months on record · Loan payment ${cash(b.loan_payment)} per month` : 'Loading account...';
 
   function submitAccount(e) {
     e.preventDefault();
@@ -82,6 +85,7 @@ export default function Dashboard({ hidden, view, show, isAdmin, c, accountInput
           <span>Typical monthly values · CAD</span>
         </div>
         <Metrics baseline={b} plan={c.plan} />
+        <AccountInsights baseline={b} />
       </section>
 
       {/* Kept mounted on the Plan tab so the chat survives switching back. */}

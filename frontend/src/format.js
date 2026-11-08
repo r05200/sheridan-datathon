@@ -16,8 +16,8 @@ export async function api(path, body) {
 const wholeDollars = new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 });
 const cents = new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', minimumFractionDigits: 2 });
 
-export const cash = x => (x == null ? '—' : wholeDollars.format(x));
-export const preciseCash = n => (n == null ? '—' : cents.format(n));
+export const cash = x => (x == null ? 'Not available' : wholeDollars.format(x));
+export const preciseCash = n => (n == null ? 'Not available' : cents.format(n));
 
 export function runway(obj) {
   if (obj.runway_months === 'no_shortfall') return 'No shortfall';

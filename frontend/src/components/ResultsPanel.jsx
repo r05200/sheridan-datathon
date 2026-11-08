@@ -1,4 +1,5 @@
 import { cash, runway } from '../format.js';
+import PlanContext from './PlanContext.jsx';
 
 function Chart({ plan }) {
   const n = plan.duration_assessment.months;
@@ -57,7 +58,7 @@ function PlanResults({ c, show }) {
     ['Buffer after immediate costs', cash(p.baseline.buffer), cash(a.buffer)],
     ['Monthly shortfall', cash(Math.max(b.spending - b.income, 0)), cash(a.monthly_gap)],
     ['Runway', runway(p.baseline), runway(a)],
-    ['Immediate expense', '—', cash(a.one_off_costs || 0)],
+    ['Immediate expense', 'Not applicable', cash(a.one_off_costs || 0)],
   ];
   return (
     <>
@@ -86,6 +87,7 @@ function PlanResults({ c, show }) {
         </div>
       </div>
       <Explanation state={c.explanation} />
+      <PlanContext plan={p} />
       <div className="to-plan">
         <button type="button" onClick={() => show('plan')}>Make a plan for this scenario ↗</button>
       </div>
