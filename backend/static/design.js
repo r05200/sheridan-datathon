@@ -1,7 +1,7 @@
 
 'use strict';
 (() => {
- let accounts=[], spotlights=[], entering=false, request=0, visibleCount=60;
+ let accounts=[], entering=false, request=0, visibleCount=60;
  const shell=document.querySelector('#app-shell'),welcome=document.querySelector('#welcome');
  const money=value=>value==null?'—':new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD',maximumFractionDigits:0}).format(value);
  function show(view){
@@ -45,25 +45,11 @@
    if(current!==request)return;
    accounts=data.accounts;visibleCount=60;rows();
    document.querySelector('#database-count').textContent=`${data.matched_accounts.toLocaleString()} of ${data.total_accounts.toLocaleString()} accounts · as of ${data.as_of}`;
-   const validation=data.watchlist_validation;
-   document.querySelector('#watchlist-validation').textContent=
-    `Retrospective check (${validation.cutoff}; next six months): the top 5% band found ${validation.priority_band_events} of ${validation.later_event_accounts} later events (${(validation.priority_band_hit_rate*100).toFixed(1)}% of flagged accounts). Lowest-surplus-only found ${validation.lowest_surplus_same_size_events} at the same list size. This is a ranking hit rate, not an individual probability.`;
   }catch(error){if(current===request)document.querySelector('#user-count').textContent=error.message;}
- }
- function renderSpotlights(){
-  const target=document.querySelector('#spotlight-list');
-  target.replaceChildren(...spotlights.map(item=>{
-   const button=document.createElement('button');button.type='button';button.className='spotlight-card';
-   const title=document.createElement('strong');title.textContent=item.label;
-   const why=document.createElement('span');why.textContent=`Account ${item.account_id} · ${item.reason}`;
-   const status=document.createElement('small');status.textContent=`Official runway: ${item.baseline.runway_status==='no_shortfall'?'No shortfall (120+)':`${item.baseline.runway_months} months`} · Historical negative months: ${item.stress.negative_month_count}`;
-   button.append(title,why,status);button.onclick=()=>openAccount(item.account_id);return button;
-  }));
  }
  document.querySelector('#user-search').addEventListener('input',()=>{visibleCount=60;rows();});
  document.querySelector('#account-filter').addEventListener('change',event=>{visibleCount=60;loadDirectory(event.target.value);});
  loadDirectory();
- fetch('/api/tangerine/spotlights').then(async response=>{const data=await response.json();if(!response.ok)throw Error(data.detail||'Could not load frozen examples.');spotlights=data.accounts;renderSpotlights();}).catch(error=>{document.querySelector('#spotlight-list').textContent=error.message;});
  document.querySelectorAll('[data-view]').forEach(b=>{if(b.tagName==='BUTTON')b.addEventListener('click',()=>show(b.dataset.view));});
  document.querySelector('.brand').addEventListener('click',e=>{e.preventDefault();show('users');});
  document.querySelector('#enter-app').onclick=()=>{if(entering)return;entering=true;document.querySelector('#falling-orange').hidden=false;document.querySelector('#welcome-status').textContent='Opening your financial what-if lab…';const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;setTimeout(()=>{welcome.classList.add('leaving');setTimeout(()=>{welcome.hidden=true;shell.hidden=false;show('users');},reduced?0:350);},reduced?0:1400);};

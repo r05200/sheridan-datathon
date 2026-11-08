@@ -46,6 +46,8 @@ def test_baseline_endpoint_includes_stress_and_comparison_signals():
     assert result["stress"]["worst_observed_balance"] < 0
     assert result["stress"]["loan_contract_monthly_payment"] > 0
     assert result["stress"]["median_observed_loan_payment"] == 0
+    assert result["stress"]["loan_risk"]["available"] is True
+    assert "relative" in result["stress"]["loan_risk"]["label"].lower()
     assert result["peer_context"]["income_band"].startswith("Income quartile")
     assert result["watchlist"]["eligible"] is False
     assert result["watchlist"]["rank"] is None

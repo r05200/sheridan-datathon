@@ -74,7 +74,7 @@ function renderHistoryCharts(series){
 function renderStressInsights(b){
  const s=b.stress;
  if(!s){$('#stress-insights').replaceChildren();return;}
- const peer=b.peer_context,pension=b.pension_check,w=b.watchlist,v=w.validation;
+ const peer=b.peer_context,pension=b.pension_check;
  const share=s.cash_withdrawal_share==null?'—':`${(s.cash_withdrawal_share*100).toFixed(1)}%`;
  const shareValue=Math.max(0,Math.min(100,(s.cash_withdrawal_share||0)*100));
  const negativeRate=s.observations?100*s.negative_month_count/s.observations:0;
@@ -82,10 +82,14 @@ function renderStressInsights(b){
  const runwayText=(status,months)=>status==='no_shortfall'?'No monthly shortfall':`${months} months`;
  const balanceChange=Math.abs(s.balance_trend.recent_vs_prior_3_month_mean_change);
  const balanceDirection=s.balance_trend.falling?'lower':balanceChange===0?'the same':'higher';
- const rankPosition=w.eligible_accounts?100*(w.rank-.5)/w.eligible_accounts:0;
  const summary=s.negative_month_count>0
   ?`${s.negative_month_count} months in the recorded history had at least one day below $0.`
   :'No day below $0 appears in the recorded history.';
+ const riskBandClass={
+  'Lower relative ranking':'risk-band-lower',
+  'Middle relative ranking':'risk-band-middle',
+  'Higher relative ranking':'risk-band-higher',
+ }[s.loan_risk?.band]||'';
  const html=`<section class="stress-block" aria-labelledby="stress-title">
   <div class="stress-heading">
    <div><p class="eyebrow">A closer look at the history</p><h2 id="stress-title">What the account history shows</h2><p>${summary} These are historical signals, not a prediction.</p></div>
@@ -95,6 +99,7 @@ function renderStressInsights(b){
    <article class="stress-stat ${s.worst_observed_balance<0?'warning':''}"><small>Lowest recorded balance</small><strong>${cash(s.worst_observed_balance)}</strong><p>Lowest point seen in the available history.</p></article>
    <article class="stress-stat"><small>Cash withdrawals</small><strong>${share}</strong><progress class="signal-progress cash-progress" max="100" value="${shareValue}" aria-label="${share} of recorded money out was cash withdrawals"></progress><p>Share of recorded money out. Withdrawals are not assumed to be optional spending.</p></article>
    <article class="stress-stat"><small>Loan payments</small><div class="stress-pair"><span><strong>${cash(s.loan_contract_monthly_payment)}</strong><small>Scheduled amount</small></span><span><strong>${cash(s.median_observed_loan_payment)}</strong><small>Typical recorded month</small></span></div><p>${esc(s.loan_status_meaning)}. Recorded payments can be zero in months without a payment.</p></article>
+   <article class="stress-stat loan-risk-stat"><small>${esc(s.loan_risk?.label||'Experimental relative loan-risk ranking')}</small>${s.loan_risk?.available?`<strong>${esc(s.loan_risk.band)}</strong><div class="loan-risk-scale ${riskBandClass}" role="img" aria-label="${esc(s.loan_risk.band)} among ongoing loans; this is not a probability of default"><div class="loan-risk-track"><span class="loan-risk-marker"></span></div><div class="loan-risk-labels"><span>Lower</span><span>Middle</span><span>Higher</span></div></div><p>Relative position among ${s.loan_risk.comparison_group_size} ongoing loans. Uses three complete months before loan origination (${s.loan_risk.completed_defaults} defaults among ${s.loan_risk.completed_training_loans} completed training loans).</p><p>${esc(s.loan_risk.caveat)}</p>`:`<strong>Not available</strong><p>${esc(s.loan_risk?.reason||'No comparable loan data available.')}</p>`}</article>
   </div>
   ${renderHistoryCharts(s.monthly_history)}
   <div class="insight-panels">
@@ -114,13 +119,6 @@ function renderStressInsights(b){
     <p>${esc(peer.income_band)} · ${peer.pension_majority?'mostly pension income':'not mostly pension income'} · ${peer.peer_count.toLocaleString()} accounts.</p>
     <p>This account’s official runway is longer than about <strong>${peer.runway_percentile}%</strong> of this group. ${peer.peer_capped_share}% of the group is shown at the 120-month cap.</p>
     <progress class="signal-progress peer-progress" max="100" value="${peerPercentile}" aria-label="Runway percentile ${peer.runway_percentile} percent within the peer group"></progress><div class="progress-labels"><span>Shorter runway</span><span>Longer runway</span></div>
-   </article>
-   <article class="insight-panel">
-    <h3>Watchlist (never-negative accounts only)</h3>
-    <p>${w.eligible?`Relative band: <strong>${esc(w.band)}</strong> · position ${w.rank.toLocaleString()} of ${w.eligible_accounts.toLocaleString()}.`:'Not ranked: this account has a recorded month with a day below $0.'}</p>
-    ${w.eligible?`<div class="watchlist-scale" role="img" aria-label="Watchlist position ${w.rank} of ${w.eligible_accounts}; lower rank is higher priority"><span class="watch-priority"></span><span class="watch-watch"></span><span class="watch-routine"></span><i style="--rank-position:${rankPosition}%"></i></div><div class="progress-labels"><span>Higher priority</span><span>Lower priority</span></div>`:''}
-    <p>This is a sorting aid, not a chance or probability.</p>
-    <details class="validation-detail"><summary>How did this sorting rule do in a past six-month check?</summary><p>Of ${v.priority_band_size} flagged accounts (the top 5%), ${v.priority_band_events} later went below $0: ${(v.priority_band_hit_rate*100).toFixed(1)}% of flagged accounts. The list included ${v.priority_band_events} of ${v.later_event_accounts} later events (${(v.later_events_captured_pct*100).toFixed(1)}%). Lowest recent surplus alone found ${v.lowest_surplus_same_size_events} events in a list of the same size. This is one historical check, not a forecast.</p></details>
    </article>
   </div>
   ${pension?`<article class="insight-panel pension-note"><h3>Pension income comparison</h3><p>Official runway: <strong>${runwayText(pension.official_baseline_runway_status,pension.official_baseline_runway_months)}</strong>. EI-at-55% comparison: <strong>${runwayText(pension.ei55_runway_status,pension.ei55_runway_months)}</strong>.</p><p>Employment Insurance does not apply to pension income. The EI figure is an illustrative comparison only.</p></article>`:''}

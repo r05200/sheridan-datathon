@@ -10,7 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from . import config
+from . import config, default_risk
 
 PROFILE_PATH = config.BACKEND_DIR / "data" / "customer_profiles.csv"
 DATA_DIR = Path(os.environ.get("TANGERINE_DATA_DIR", config.BACKEND_DIR.parent / "data"))
@@ -355,6 +355,9 @@ def account_insights(account_id: int) -> dict[str, Any]:
             "active_loan_monthly_payment": round(profile["active_loan_monthly_payment"], 2),
             "median_observed_loan_payment": round(profile["median_observed_loan_payment"], 2),
             "loan_payment_note": "Contractual amount is from the loan snapshot; median observed payment is across the full monthly history and can be zero when payments are intermittent.",
+            "loan_risk": default_risk.account_risk_indicator(
+                account_id, profile["loan_status"]
+            ),
             "last_month": profile["latest_month"],
             "income_trend": {
                 "recent_3_month_median": round(profile["recent_income_median_3m"], 2),
