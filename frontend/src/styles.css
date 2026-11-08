@@ -451,6 +451,60 @@ summary {
 .explanation .warning {
   color: var(--red);
 }
+/* "What this means" card on the Stress Test tab: always open, one bullet per finding. */
+.explain-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.explanation .explain-card h3 {
+  margin: 0 0 8px;
+}
+.explain-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink);
+}
+.explain-card li + li {
+  margin-top: 4px;
+}
+/* Collapsible explanation sections: click the heading to reveal the text. */
+.explain-drop {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  margin-bottom: 10px;
+}
+.explain-drop summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  color: var(--ink);
+}
+.explain-drop summary::-webkit-details-marker {
+  display: none;
+}
+.explanation .explain-drop summary h3 {
+  margin: 0;
+}
+.explain-drop .chevron {
+  color: var(--green);
+  transition: transform 0.2s ease;
+}
+.explain-drop[open] .chevron {
+  transform: rotate(180deg);
+}
+.explain-drop .explain-body {
+  padding: 0 16px 14px;
+}
+.explain-drop .explain-body p {
+  margin: 0;
+}
 details.data {
   margin-top: 20px;
   font-size: 11px;
@@ -2200,36 +2254,6 @@ button.directory-account .directory-arrow {
   justify-content: space-between;
   margin-top: 6px;
 }
-.plan-context {
-  margin-top: 18px;
-  padding: 17px 19px;
-  border: 1px solid #edcfaa;
-  border-radius: 14px;
-  background: #fff9f0;
-}
-.plan-context h3 {
-  margin: 0 0 9px;
-  color: var(--ink);
-  font-size: var(--fs-h3);
-}
-.plan-context ul {
-  margin: 0;
-  padding-left: 19px;
-  color: var(--ink);
-  font-size: var(--fs-body);
-  line-height: 1.55;
-}
-.plan-context li + li {
-  margin-top: 4px;
-}
-.plan-context > p,
-.plan-context > small {
-  display: block;
-  margin: 7px 0 0;
-  color: var(--muted);
-  font-size: var(--fs-small);
-  line-height: 1.5;
-}
 @media (max-width: 900px) {
   .portfolio-baseline {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2586,5 +2610,506 @@ button.directory-account .directory-arrow {
   }
   .lin-node.branch .lin-text strong {
     font-size: var(--fs-caption);
+  }
+}
+
+/* Visuals ported from the vanilla-JS branch (project/static): balance history, signal meters,
+   loan-risk scale, peer-runway track, savings projection, peer spending comparison, directory
+   health badges. */
+.history-visuals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.history-visuals .history-chart {
+  min-width: 0;
+}
+.balance-legend span:before {
+  background: #1c594b;
+}
+.balance-legend span + span:before {
+  height: 0;
+  border-top: 2px dashed #9aa79d;
+  border-radius: 0;
+  background: none;
+}
+.balance-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 8px;
+  overflow: visible;
+}
+.chart-gridline {
+  stroke: #e6ebe4;
+  stroke-width: 1;
+}
+.chart-zero {
+  stroke: #9aa79d;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+.chart-label {
+  fill: var(--muted);
+  font-size: 10px;
+}
+.balance-line {
+  fill: none;
+  stroke: #1c594b;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.balance-point {
+  fill: #fff;
+  stroke: #1c594b;
+  stroke-width: 2;
+}
+.history-note {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+}
+
+/* Thin meters under a signal's text, and under a fact in the list */
+.signal-meter {
+  display: grid;
+  gap: 6px;
+  margin-top: 2px;
+}
+.meter-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: #efe4d6;
+}
+.meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  max-width: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ffa43a, #f58220);
+}
+.account-signal.warning .meter-fill {
+  background: linear-gradient(90deg, #e8a060, #c8344b);
+}
+.meter-mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: #8b6a24;
+  transform: translateX(-50%);
+}
+.meter-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.account-signal > .meter-status {
+  display: inline-block;
+  justify-self: start;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #fff0df;
+  color: #9e3f2f;
+  font-size: 11px;
+  font-weight: 700;
+}
+.fact-meter {
+  display: block;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: #efe4d6;
+  overflow: hidden;
+}
+.fact-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #337566;
+}
+.fact-meter.warning > span {
+  background: #d18b32;
+}
+
+/* Peer runway percentile */
+.peer-track {
+  position: relative;
+  height: 10px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: #efe4d6;
+  overflow: hidden;
+}
+.peer-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7eaa82, #337566);
+}
+.insight-detail > .meter-scale {
+  margin-top: 6px;
+}
+
+/* Loan-risk band scale */
+.loan-risk-scale {
+  margin: 16px 2px 8px;
+}
+.loan-risk-track {
+  position: relative;
+  height: 9px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #dce8df 0 33.333%, #f2e7c9 33.333% 66.666%, #f4d8c8 66.666%);
+}
+.loan-risk-marker {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #344a43;
+  box-shadow: 0 0 0 2px #344a43;
+  transform: translate(-50%, -50%);
+}
+.risk-lower .loan-risk-marker {
+  left: 16.667%;
+}
+.risk-middle .loan-risk-marker {
+  left: 50%;
+}
+.risk-higher .loan-risk-marker {
+  left: 83.333%;
+}
+.loan-risk-labels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: var(--fs-caption);
+  text-align: center;
+}
+.risk-lower .loan-risk-labels span:first-child,
+.risk-middle .loan-risk-labels span:nth-child(2),
+.risk-higher .loan-risk-labels span:last-child {
+  color: var(--ink);
+  font-weight: 750;
+}
+
+/* Savings projection (Stress Test results) */
+.projection {
+  padding: 20px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fffaf4, #fff);
+}
+.projection-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.projection .projection-heading h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+.projection-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.projection-pill {
+  padding: 5px 9px;
+  border-radius: 20px;
+  background: #e7f5eb;
+  color: #166b45;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.projection-pill.shortfall {
+  background: #fdecef;
+  color: #c8344b;
+}
+.projection-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 22px 0 4px;
+}
+.projection-stats small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+}
+.projection-stats strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+}
+.projection-stats > span {
+  color: #c7b5a3;
+  font-size: 23px;
+}
+.projection-stats > div:last-child {
+  text-align: right;
+}
+.projection svg {
+  display: block;
+  width: 100%;
+  margin: 0;
+  overflow: visible;
+  font-family: "Nunito Sans", system-ui, sans-serif;
+}
+.projection svg text {
+  fill: #807267;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.projection-grid {
+  stroke: #f0e7de;
+  stroke-width: 1;
+}
+.projection-zero {
+  stroke: #ac9d90;
+  stroke-width: 1.5;
+}
+.projection-line {
+  fill: none;
+  stroke: #f58220;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.projection-line.negative {
+  stroke: #c8344b;
+  stroke-dasharray: 6 5;
+}
+.projection-loss {
+  color: #c8344b;
+}
+.projection-point {
+  cursor: pointer;
+  outline: none;
+}
+.projection-point:hover circle:last-child,
+.projection-point:focus circle:last-child {
+  stroke: #b8500a;
+  stroke-width: 3;
+  r: 6;
+}
+.projection-caption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.projection-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--orange);
+}
+.projection-loss .projection-dot {
+  background: #c8344b;
+}
+.projection-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.balance-tooltip {
+  position: fixed;
+  z-index: 1000;
+  max-width: calc(100vw - 16px);
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #2b2623;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 6px 20px #2b262333;
+  pointer-events: none;
+}
+.balance-calculation {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.balance-calculation summary {
+  font-size: 12px;
+  font-weight: 700;
+}
+.balance-calculation p {
+  margin: 12px 0;
+}
+.balance-calculation dl {
+  margin: 14px 0;
+}
+.balance-calculation dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+.balance-calculation dt {
+  color: var(--muted);
+}
+.balance-calculation dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.balance-equation {
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff0df;
+  overflow-wrap: anywhere;
+}
+.monthly-table-wrap {
+  max-height: 340px;
+  margin: 16px 0;
+  overflow: auto;
+}
+.goal-timeline strong {
+  font-size: clamp(17px, 2vw, 22px);
+  line-height: 1.35;
+  letter-spacing: -0.3px;
+}
+.goal-timeline p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+/* Peer spending comparison (Plan tab) */
+.peer-comparison {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fffaf4;
+}
+.peer-comparison h3 {
+  margin: 6px 0 12px;
+  font-size: 20px;
+}
+.peer-comparison h4 {
+  margin: 18px 0 10px;
+  font-size: 14px;
+}
+.peer-comparison p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.peer-table-wrap {
+  margin: 18px 0;
+  overflow: auto;
+}
+.peer-comparison .comparison {
+  min-width: 420px;
+}
+.peer-comparison .above-median {
+  color: #b8500a;
+}
+.peer-review-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.peer-review-list article {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.peer-review-list strong {
+  font-size: 12px;
+}
+.peer-budget-choice {
+  margin: 20px 0;
+  padding: 18px;
+  border-radius: 12px;
+  background: #fff0df;
+}
+.peer-budget-choice label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+.peer-budget-choice input {
+  max-width: 220px;
+  margin-bottom: 12px;
+}
+.peer-comparison details {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.peer-note {
+  font-size: 11px !important;
+}
+
+/* Directory health badge */
+.account-health {
+  display: inline-flex;
+  justify-self: start;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.account-health.healthy {
+  background: #dff5e9;
+  color: #166b45;
+}
+.account-health.watch {
+  background: #fff0d2;
+  color: #945a0b;
+}
+.account-health.at_risk {
+  background: #fdecef;
+  color: #c8344b;
+}
+
+@media (max-width: 900px) {
+  .history-visuals {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .peer-review-list {
+    grid-template-columns: 1fr;
+  }
+  .peer-comparison {
+    padding: 16px;
+  }
+  .projection {
+    padding: 16px 10px;
+  }
+  .projection-stats strong {
+    font-size: 19px;
   }
 }

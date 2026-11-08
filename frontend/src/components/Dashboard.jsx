@@ -3,16 +3,14 @@ import ChatPanel from './ChatPanel.jsx';
 import ResultsPanel, { Explanation } from './ResultsPanel.jsx';
 import ActionPlan from './ActionPlan.jsx';
 import AccountInsights from './AccountInsights.jsx';
-import PlanContext from './PlanContext.jsx';
 
 // Plan tab: the goal plan always; with an applied scenario, a one-line scenario card on top plus the backup plan.
 function PlanView({ c, plan, show }) {
   return (
     <div className="plan-view">
-      <ActionPlan key={c.planVersion} plan={plan} scenario={c.plan} onEditScenario={() => show('stress')}
+      <ActionPlan key={c.planVersion} plan={plan} scenario={c.plan} account={c.account} onEditScenario={() => show('stress')}
         planning={c.planning} busy={c.busy} error={c.planningError} onSubmit={c.recalculatePlan} />
-      <PlanContext plan={plan} />
-      {c.plan ? <Explanation state={c.explanation} /> : (
+      {c.plan ? <Explanation state={c.explanation} part="plan" /> : (
         <div className="add-stress">
           <p>Want to see how a job loss, rent hike or surprise bill would change this? Add a stress test to get a backup plan.</p>
           <button type="button" onClick={() => show('stress')}>Add a stress test ↗</button>

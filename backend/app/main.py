@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from .ai import config, explainer, shock_parser
 from .finance import engine
+from .finance.peers import compare_peers
 from .db.config import BACKUP_SQL, backup_mode, build_url
 from .db import (AccountNotFound, DatabaseUnavailable, NoHistory, get_session, load_config, services,
                  session_scope)
@@ -199,6 +200,8 @@ class ResolveRequest(BaseModel):
     duration_months: int | None = Field(None, ge=1, le=60)
     income_replacement_pct: float | None = Field(None, ge=0, le=150, allow_inf_nan=False)
     overlap_acknowledged: bool = False
+    # Per-clause durations ({"income": 3, "category_0": 6}) when a scenario has several timelines.
+    durations: dict[str, int] = Field(default_factory=dict, max_length=20)
 
 
 @app.post("/api/resolve-shock")
@@ -206,7 +209,8 @@ def resolve_shock(req: ResolveRequest, session: Session = Depends(get_session)):
     base = _without_id(services.get_account_baseline(session, req.account_id))
     try:
         return shock_parser.resolve_draft(req.draft, base, req.category_amounts,
-                                          req.duration_months, req.overlap_acknowledged, req.income_replacement_pct)
+                                          req.duration_months, req.overlap_acknowledged, req.income_replacement_pct,
+                                          req.durations)
     except ValueError as e:
         raise HTTPException(422, str(e))
 
@@ -214,6 +218,12 @@ def resolve_shock(req: ResolveRequest, session: Session = Depends(get_session)):
 @app.get("/api/accounts")
 def accounts(session: Session = Depends(get_session)):
     return {"account_ids": sorted(services.get_all_baselines(session))}
+
+
+@app.get("/api/accounts/{account_id}/peers")
+def peers(account_id: int, session: Session = Depends(get_session)) -> dict[str, Any]:
+    """Closest accounts by income, fixed costs and loan payment. Peer medians are review prompts, not budgets."""
+    return compare_peers(account_id, services.get_peer_metrics(session))
 
 
 @app.get("/api/tangerine/accounts")

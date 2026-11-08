@@ -7,7 +7,8 @@ function Question({ q }) {
     case 'income_percentage':
       return <label>{q.question}<input type="number" name="incomePct" min="0" max="150" step="0.1" required placeholder="0 for no income, 55 for 55%" /></label>;
     case 'duration':
-      return <label>{q.question}<input type="number" name="duration" min="1" max="60" step="1" required /></label>;
+      // Per-clause questions (scenarios with several timelines) carry `clause`; the shared one doesn't.
+      return <label>{q.question}<input type="number" name={q.clause ? `duration_${q.clause}` : 'duration'} min="1" max="60" step="1" required /></label>;
     case 'confirmation':
       return <label className="check"><input type="checkbox" name="overlap" required /> {q.question}</label>;
     default:

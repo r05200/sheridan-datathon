@@ -22,7 +22,7 @@ function buildSteps(b, account) {
       columns: Array.from({ length: recent }, (_, i) => ({ title: `Month ${n - recent + i + 1}`, detail: 'avg daily balance' })),
       merge: { title: `Average of the last ${recent} months`, value: cash(b.buffer), label: 'Savings buffer' },
     },
-    { title: 'Fetch from loans', detail: 'Only running loans (status C or D) count', value: `${cash(b.loan_payment)}/mo`, label: 'Active loan payment' },
+    { title: 'Fetch from loans', detail: 'Only running loans count', value: `${cash(b.loan_payment)}/mo`, label: 'Active loan payment' },
     {
       columns: [{ title: 'Savings buffer' }, { title: 'Monthly spending' }, { title: 'Monthly inflows' }],
       merge: { title: 'Buffer ÷ monthly shortfall, capped at 120', value: runway(baselineRunway(b)), label: 'Baseline runway' },

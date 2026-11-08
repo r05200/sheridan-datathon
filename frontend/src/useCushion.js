@@ -10,8 +10,11 @@ export const MAX_STACKED = 10;  // matches ShockModel.parts max_length in the AP
 // Stack a new shock on top of the one already applied, so scenarios are cumulative. Each shock stays a
 // separate part with its own duration; the engine applies each part only during its own window.
 export function combineShocks(prev, next) {
-  return { shock: { parts: [...(prev.parts?.length ? prev.parts : [prev]), next] }, notes: [STACKED] };
+  return { shock: { parts: [...shockParts(prev), ...shockParts(next)] }, notes: [STACKED] };
 }
+
+// A shock as a flat list of parts (a scenario with several timelines already arrives as parts).
+export const shockParts = shock => (shock.parts?.length ? shock.parts : [shock]);
 
 const recentKey = id => 'runway:recentQueries:' + id;
 function readRecent(id) {
@@ -42,12 +45,12 @@ export function useCushion() {
   // Values read synchronously inside async handlers (React state would be stale there).
   const s = useRef({
     account: DEFAULT_ACCOUNT, busy: false, revision: 0, planToken: 0, appliedShock: null, planning: {},
-    amounts: {}, duration: null, incomePct: null, overlap: false, recent: [],
+    amounts: {}, duration: null, durations: {}, incomePct: null, overlap: false, recent: [],
   }).current;
   const nextId = useRef(0);
 
   const setBusy = on => { s.busy = on; setBusyState(on); };
-  const resetClarifications = () => { s.amounts = {}; s.duration = null; s.incomePct = null; s.overlap = false; };
+  const resetClarifications = () => { s.amounts = {}; s.duration = null; s.durations = {}; s.incomePct = null; s.overlap = false; };
 
   const addMessage = msg => setMessages(m => [...m, { id: ++nextId.current, ...msg }]);
   const say = (text, extra = {}) => addMessage({ kind: 'text', text, ...extra });
@@ -55,7 +58,7 @@ export function useCushion() {
   // A reviewable scenario is shown (and applied) on top of whatever is already applied.
   const interpretation = result => {
     if (result.status === 'ok' && result.shock && s.appliedShock) {
-      if ((s.appliedShock.parts?.length || 1) >= MAX_STACKED) {
+      if (shockParts(s.appliedShock).length + shockParts(result.shock).length > MAX_STACKED) {
         say(`You can stack up to ${MAX_STACKED} changes. Load the account again to start a new scenario.`);
         return;
       }
@@ -178,6 +181,7 @@ export function useCushion() {
     for (const [k, v] of fd) {
       if (k.startsWith('amount_')) s.amounts[k.slice(7)] = Number(v);
       if (k === 'duration') s.duration = Number(v);
+      if (k.startsWith('duration_')) s.durations[k.slice(9)] = Number(v);
       if (k === 'incomePct') s.incomePct = Number(v);
       if (k === 'overlap') s.overlap = true;
     }
@@ -185,7 +189,7 @@ export function useCushion() {
     try {
       const r = await api('/api/resolve-shock', {
         account_id: s.account, draft: msg.result.draft, category_amounts: s.amounts, duration_months: s.duration,
-        income_replacement_pct: s.incomePct, overlap_acknowledged: s.overlap,
+        income_replacement_pct: s.incomePct, overlap_acknowledged: s.overlap, durations: s.durations,
       });
       markDone(msg.id);
       interpretation(r);

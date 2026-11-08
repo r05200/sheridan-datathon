@@ -78,6 +78,16 @@ export default function ChatPanel({ c }) {
           ? <Interpretation key={m.id} msg={m} busy={c.busy} onClarify={c.clarify} onApply={c.applyScenario} />
           : <div key={m.id} className={'message' + (m.user ? ' user' : '')}>{m.text}</div>))}
       </div>
+      {c.recentQueries.length > 0 && (
+        <div className="examples" aria-label="Recent queries">
+          {c.recentQueries.map(q => (
+            <button key={q} type="button" title={q} aria-label={`Reuse query: ${q}`} disabled={c.busy}
+              onClick={() => { setQuery(q); queryRef.current?.focus(); }}>
+              <span className="recent-query-text">{q}</span><span aria-hidden="true">↗</span>
+            </button>
+          ))}
+        </div>
+      )}
       <form id="chat-form" onSubmit={send}>
         <label className="sr-only" htmlFor="query">Describe your financial shock</label>
         <textarea id="query" ref={queryRef} maxLength="500" rows="3" required disabled={c.busy}

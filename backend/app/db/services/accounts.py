@@ -17,6 +17,10 @@ _BASELINE_REQUIRED = ("income", "spending", "household_bills", "fixed_costs", "b
 
 _FLEXIBLE = ("card_withdrawals", "cash_withdrawals", "transfers_out_other")
 
+# Monthly metrics a peer comparison matches on and benchmarks. Blank values in these mean nothing recorded.
+_PEER = ("income", "spending", "household_bills", "fixed_costs", "loan_payment") + _FLEXIBLE
+_PEER_BLANK_IS_ZERO = ("loan_payment",) + _FLEXIBLE
+
 
 def _filled():
     return [m.c[c].is_not(None) for c in _BASELINE_REQUIRED]
@@ -79,3 +83,12 @@ def get_all_baselines(session: Session) -> dict[int, Baseline]:
     """Every account whose baseline has been filled in."""
     rows = run(session, select(m).where(*_filled()).order_by(m.c.account_id)).mappings()
     return {r["account_id"]: build(Baseline, r) for r in rows}
+
+
+def get_peer_metrics(session: Session) -> dict[int, dict[str, float]]:
+    """Monthly metrics for every filled account, keyed by account id, for cohort comparisons."""
+    rows = run(session, select(m).where(*_filled()).order_by(m.c.account_id)).mappings()
+    return {
+        r["account_id"]: {c: float(r[c] or 0.0) if c in _PEER_BLANK_IS_ZERO else float(r[c]) for c in _PEER}
+        for r in rows
+    }

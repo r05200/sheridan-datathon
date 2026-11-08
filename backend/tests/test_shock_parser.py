@@ -33,8 +33,20 @@ def test_combined_shock_with_explicit_duration():
     r = sp.parse_shock("laid off EI 55% for 6 months bills up 15%", BASELINE, FakeClient(parsed(
         income_multiplier=0.55, household_bills_pct_change=15,
         assumptions=["EI at 55% for 6 months assumed"], income_duration_months=6)))
+    # The 6 months belongs to the income change; the bills change's own duration is asked, not copied.
+    assert r["status"] == "needs_input"
+    assert [q.get("clause") for q in r["questions"] if q["kind"] == "duration"] == ["bills"]
+    r = sp.resolve_draft(sp.ParsedShockSchema.model_validate(r["draft"]), BASELINE, durations={"bills": 6})
     assert r["shock"]["income_duration_months"] == 6 and r["status"] == "ok"
     assert r["resolved"]["income_after_shock"] == 1650 and r["resolved"]["household_bills_change"] == 135
+
+
+def test_combined_shock_with_one_shared_duration():
+    r = sp.parse_shock("for 6 months: laid off EI 55% and bills up 15%", BASELINE, FakeClient(parsed(
+        income_multiplier=0.55, household_bills_pct_change=15,
+        income_duration_months=6, scenario_duration_months=6)))
+    assert r["status"] == "ok" and "parts" not in r["shock"]
+    assert r["shock"]["scenario_duration_months"] == 6
 
 
 def test_layoff_without_amount_or_duration_requires_both():

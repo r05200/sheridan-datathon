@@ -62,8 +62,40 @@ def test_duration_and_overlap_need_answers():
 def test_bad_category_operation_and_conflicting_duration_rejected():
     with pytest.raises(ValueError, match='exactly one'):
         sp.resolve_draft(draft(category_changes=[{'category':'rent','pct_change':10,'monthly_delta':100}]), BASE)
-    with pytest.raises(ValueError, match='same duration'):
+    with pytest.raises(ValueError, match='conflicts'):
         sp.resolve_draft(draft(income_multiplier=.55,income_duration_months=6), BASE, duration_months=3)
+
+
+def test_multiple_time_based_clauses_ask_for_each_duration():
+    d = draft(income_multiplier=0, income_duration_months=None,
+              category_changes=[{'category':'rent','monthly_delta':200}])
+    r = sp.resolve_draft(d, BASE)
+    assert r['status'] == 'needs_input'
+    asked = [q for q in r['questions'] if q['kind'] == 'duration']
+    assert [q['clause'] for q in asked] == ['income', 'category_0']
+    assert 'income' in asked[0]['question'] and 'rent' in asked[1]['question']
+    r = sp.resolve_draft(d, BASE, durations={'income': 3, 'category_0': 12})
+    assert r['status'] == 'ok'
+    parts = r['shock']['parts']
+    assert [(p['income_multiplier'], p['scenario_duration_months']) for p in parts] == [(0, 3), (None, 12)]
+    assert parts[1]['recurring_costs'][0]['monthly_change'] == 200
+    plan = build_plan(BASE, {}, Shock(parts=[Shock(**{k: v for k, v in p.items() if k not in ('one_off_costs', 'recurring_costs')},
+                                                   recurring_costs=[RecurringCost(**c) for c in p['recurring_costs']])
+                                             for p in parts]))
+    assert plan['duration_assessment']['months'] == 12
+
+
+def test_only_the_missing_clause_duration_is_asked():
+    d = draft(income_multiplier=.55, income_duration_months=3, category_changes=[{'category':'rent','monthly_delta':200}])
+    asked = [q for q in sp.resolve_draft(d, BASE)['questions'] if q['kind'] == 'duration']
+    assert [q['clause'] for q in asked] == ['category_0']
+
+
+def test_same_answer_for_every_clause_keeps_one_flat_shock():
+    d = draft(income_multiplier=.55, category_changes=[{'category':'rent','monthly_delta':200}])
+    r = sp.resolve_draft(d, BASE, durations={'income': 6, 'category_0': 6})
+    assert 'parts' not in r['shock']
+    assert r['shock']['income_duration_months'] == r['shock']['scenario_duration_months'] == 6
 
 
 def test_parser_backstop_never_uses_total_spending_for_groceries():

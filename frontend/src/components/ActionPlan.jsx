@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import { preciseCash, runway } from '../format.js';
+import PeerComparison from './PeerComparison.jsx';
 
 const GOAL_STATUS = {
   target_met: 'Target already met', no_surplus: 'Restore cash flow first',
@@ -32,14 +34,21 @@ function ScenarioCard({ plan, onEdit }) {
 
 // Goal plan always; the backup plan only once a stress-test scenario is applied (scenario = that plan).
 // Inputs are uncontrolled and reset (via the parent's key) after each recalculation.
-export default function ActionPlan({ plan, scenario, onEditScenario, planning, busy, error, onSubmit }) {
+export default function ActionPlan({ plan, scenario, account, onEditScenario, planning, busy, error, onSubmit }) {
   const { goal: g, backup: b } = plan.action_plan;
+  const form = useRef(null);
 
   function submit(e) {
     e.preventDefault();
     const settings = {};
     for (const [k, v] of new FormData(e.currentTarget)) settings[k] = v === '' ? null : Number(v);
     onSubmit(settings);
+  }
+
+  // A reduction chosen in the peer comparison goes into the backup plan's input; the user still recalculates.
+  function useCut(value) {
+    const input = form.current?.elements.namedItem('confirmed_monthly_cut');
+    if (input) input.value = value;
   }
 
   return (
@@ -49,7 +58,7 @@ export default function ActionPlan({ plan, scenario, onEditScenario, planning, b
         <span>Calculated from this account</span>
       </div>
       {scenario && <ScenarioCard plan={scenario} onEdit={onEditScenario} />}
-      <form id="planning-form" className={scenario ? undefined : 'single'} onSubmit={submit}>
+      <form id="planning-form" className={scenario ? undefined : 'single'} onSubmit={submit} ref={form}>
         <article className="plan-card">
           <p className="eyebrow">BEFORE A SHOCK</p>
           <h3>Your goal plan</h3>
@@ -115,6 +124,9 @@ export default function ActionPlan({ plan, scenario, onEditScenario, planning, b
           <ol className="plan-steps">{b.steps.map(x => <li key={x}>{x}</li>)}</ol>
           <small>{b.assumption}</small>
         </article>}
+
+        <PeerComparison account={account} spendingCap={scenario?.after_shock.spending}
+          currentCut={scenario ? b.confirmed_monthly_cut : 0} onUseCut={scenario ? useCut : undefined} />
 
         <p id="planning-error" className="notice error" role="alert" hidden={!error}>{error}</p>
         <button type="submit" disabled={busy}>Recalculate my plans ↗</button>

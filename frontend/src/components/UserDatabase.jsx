@@ -3,6 +3,12 @@ import { api, cash, runway } from '../format.js';
 import PortfolioSummary from './PortfolioSummary.jsx';
 
 const PAGE_SIZE = 36;  // divisible by 4, 3, 2 and 1, so every column layout fills its last row
+// Buffer coverage in months of spending, from the directory API; the title explains each band.
+const HEALTH = {
+  healthy: ['Healthy', 'Buffer covers at least 3 months of spending and monthly cash flow is non-negative.'],
+  watch: ['Watch', 'Buffer covers at least 1 month of spending; the healthy criteria are not met.'],
+  at_risk: ['At risk', 'Buffer covers less than 1 month of normal spending.'],
+};
 const FILTERS = [
   ['all', 'All accounts'],
   ['troubled_loans_healthy', 'Defaulted/debt loan · no formula shortfall'],
@@ -107,6 +113,10 @@ export default function UserDatabase({ hidden, onOpen }) {
               <span className="directory-account-identity">
                 <strong>Account {account.account_id}</strong>
                 <small>Latest balance {cash(account.latest_balance)}</small>
+                {account.buffer != null && <small>Savings buffer {cash(account.buffer)}</small>}
+                {HEALTH[account.health] && (
+                  <span className={`account-health ${account.health}`} title={HEALTH[account.health][1]}>{HEALTH[account.health][0]}</span>
+                )}
               </span>
               <span className="directory-runway">{runway(account)}</span>
               <span className="directory-indicators">

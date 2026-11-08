@@ -50,6 +50,7 @@ class CategoryChange(BaseModel):
     pct_change: float | None = Field(None, ge=-100, le=1000, allow_inf_nan=False)
     monthly_delta: float | None = Field(None, ge=-1_000_000, le=1_000_000, allow_inf_nan=False)
     new_monthly_cost: float | None = Field(None, ge=0, le=1_000_000, allow_inf_nan=False)
+    duration_months: int | None = Field(None, ge=1, le=60)   # only when this change has its own timeline
 
 
 class ParsedShockSchema(BaseModel):
@@ -87,7 +88,7 @@ Rules:
 - household_bills_pct_change: ONLY all household bills. spending_pct_change: ONLY all spending.
 - A specific category (groceries, rent, utilities, etc.) goes in category_changes, NEVER total spending.
   Item: {"category":"groceries","current_monthly_cost":null,"pct_change":10,
-  "monthly_delta":null,"new_monthly_cost":null}. Use exactly one operation: percent change, dollar
+  "monthly_delta":null,"new_monthly_cost":null,"duration_months":null}. Use exactly one operation: percent change, dollar
   INCREASE/DECREASE per month, or replacement monthly cost. Current cost ONLY if the user supplies it.
   "rent rises $200" -> monthly_delta 200. "rent becomes $2000" -> new_monthly_cost 2000.
 - one_off_costs item: {"label":"Car purchase","amount_dollars":20000,"multiple_of_monthly_spending":null}.
@@ -95,7 +96,11 @@ Rules:
   "repair costs one month of spending" -> amount_dollars null, multiple_of_monthly_spending 1.
   If no financing is mentioned, propose upfront payment from savings and list that assumption.
   If financing is mentioned without payment terms, ask for terms in unresolved instead of charging full price.
-- scenario_duration_months is the stated shared assessment duration; match income duration when both appear.
+- Durations, in months, set ONLY from what the text states for that clause: income_duration_months is
+  how long the income change lasts; scenario_duration_months is how long the spending changes last;
+  a category's own duration_months only when that category has a different stated timeline.
+  If one duration clearly covers the whole scenario, set it on both. Never copy one clause's
+  duration to another clause ("laid off for 3 months and rent rises 10%" -> income 3, scenario null).
 - Unknown amounts -> unresolved [{"field":"...","reason":"Question to ask the user"}].
 - NEVER assume EI, a replacement percentage, or a duration. Layoff/job loss alone sets
   income_change_requested true and income_multiplier null. Ask what percentage of normal income
@@ -103,7 +108,8 @@ Rules:
   Any income change sets income_change_requested true. Leave missing duration null; the app asks.
   Never guess a category budget.
 - interpretation: one brief restatement. No financial changes -> shock_found false.
-- Combined shocks allowed. Different timelines -> unresolved. Return all fields, including empty lists.
+- Combined shocks allowed, each with its own timeline; leave a missing one null (the app asks per clause).
+  Return all fields, including empty lists.
 """
 
 def build_user_message(text: str) -> str:
@@ -290,11 +296,40 @@ def parse_shock(text: str | None, baseline: dict[str, float] | None = None, clie
         return {"status": "rejected", "shock": None, "message": str(e)}
 
 
+DURATION_FIELDS = {"income_duration_months", "scenario_duration_months", "duration", "duration_months"}
+INCOME_FIELDS = {"income_multiplier", "income", "income_replacement_pct"}
+
+
+def _time_clauses(p: ParsedShockSchema, income_change: bool) -> list[tuple[str, str, int | None]]:
+    """Each time-based change in the scenario as (key, label, stated duration).
+
+    One-off costs happen once, so they have no duration and are not listed.
+    """
+    spending_changes = bool(p.category_changes) or p.household_bills_pct_change is not None \
+        or p.spending_pct_change is not None
+    clauses = []
+    if income_change:
+        # With no spending change, a stated scenario duration is the income change's duration.
+        stated = p.income_duration_months or (None if spending_changes else p.scenario_duration_months)
+        clauses.append(("income", "the income change", stated))
+    for i, c in enumerate(p.category_changes):
+        clauses.append((f"category_{i}", f"the {c.category} change", c.duration_months or p.scenario_duration_months))
+    if p.household_bills_pct_change is not None:
+        clauses.append(("bills", "the household bills change", p.scenario_duration_months))
+    if p.spending_pct_change is not None:
+        clauses.append(("spending", "the overall spending change", p.scenario_duration_months))
+    return clauses
+
+
 def resolve_draft(p: ParsedShockSchema, baseline=None, category_amounts=None,
-                  duration_months=None, overlap_acknowledged=False, income_replacement_pct=None):
+                  duration_months=None, overlap_acknowledged=False, income_replacement_pct=None,
+                  durations=None):
     """Validate clarification answers without sending budgets to Gemini.
 
     No executable shock is returned until missing inputs/overlap questions are resolved.
+    `duration_months` answers the single shared duration question; `durations` answers the
+    per-clause questions ({"income": 3, "category_0": 6, ...}) asked when a scenario has
+    several time-based changes. Changes with different durations become stacked `parts`.
     """
     p = validate_parsed(p)
     if income_replacement_pct is not None:
@@ -303,8 +338,9 @@ def resolve_draft(p: ParsedShockSchema, baseline=None, category_amounts=None,
         p = p.model_copy(update={"income_multiplier": income_replacement_pct / 100,
                                  "income_change_requested": True})
     category_amounts = category_amounts or {}
+    durations = durations or {}
     questions = []
-    adjustments = []
+    adjustments: dict[int, dict] = {}
     income_change = p.income_change_requested or p.income_multiplier is not None
     if income_change and p.income_multiplier is None:
         questions.append({"key": "income", "kind": "income_percentage", "question":
@@ -328,19 +364,34 @@ def resolve_draft(p: ParsedShockSchema, baseline=None, category_amounts=None,
             continue
         delta = (c.monthly_delta if c.monthly_delta is not None else
                  current * c.pct_change / 100 if c.pct_change is not None else c.new_monthly_cost - current)
-        adjustments.append({"label": c.category, "monthly_change": round(delta, 2),
-                            "source": "user_estimate"})
+        adjustments[i] = {"label": c.category, "monthly_change": round(delta, 2), "source": "user_estimate"}
         if baseline and current is not None and current > baseline["spending"]:
             assumptions.append(f"Please verify {c.category}: the supplied category budget exceeds recorded total monthly spending.")
         assumptions.append(f"{c.category}: {delta:+.2f}/month, using your supplied amount; "
                            "the current category cost is already included in recorded spending.")
-    duration = duration_months or p.scenario_duration_months or p.income_duration_months
-    if (p.category_changes or income_change) and duration is None:
-        questions.append({"key": "duration", "kind": "duration", "question": "For how many months should we assess this scenario?"})
-    if duration is not None and not 1 <= duration <= 60:
-        raise ValueError("Duration must be between 1 and 60 months")
-    if p.income_duration_months and duration and duration != p.income_duration_months:
-        raise ValueError("Use the same duration for all shocks; separate timelines are not supported yet")
+
+    # --- durations: one per time-based clause ---
+    clauses = _time_clauses(p, income_change)
+    resolved: dict[str, int | None] = {}
+    for key, label, stated in clauses:
+        answer = durations.get(key)
+        if answer is None:
+            if duration_months is not None and stated is not None and stated != duration_months:
+                raise ValueError(f"The supplied duration conflicts with the {stated} months stated for {label}")
+            answer = stated if stated is not None else duration_months
+        if answer is not None and not 1 <= answer <= 60:
+            raise ValueError("Duration must be between 1 and 60 months")
+        resolved[key] = answer
+    if (p.category_changes or income_change) and any(d is None for d in resolved.values()):
+        if len(clauses) == 1:
+            questions.append({"key": "duration", "kind": "duration", "question": "For how many months should we assess this scenario?"})
+        else:
+            # Several time-based changes: ask for each one's own duration instead of forcing one shared window.
+            for key, label, _ in clauses:
+                if resolved[key] is None:
+                    questions.append({"key": f"duration_{key}", "kind": "duration", "clause": key,
+                                      "question": f"For how many months will {label} last?"})
+
     categories = [c.category.lower() for c in p.category_changes]
     overlapping = (bool(p.spending_pct_change) and bool(p.category_changes)) or (
         bool(p.household_bills_pct_change) and any(
@@ -349,27 +400,56 @@ def resolve_draft(p: ParsedShockSchema, baseline=None, category_amounts=None,
         questions.append({"key": "overlap", "kind": "confirmation", "question":
                           "Category and broader spending changes may overlap. Confirm you intend to ADD both increases, or revise the scenario."})
     for u in p.unresolved:
-        if income_change and u.field in {"income_multiplier", "income_duration_months", "scenario_duration_months", "income", "duration", "income_replacement_pct"}:
-            continue  # typed inputs above handle these clarifications
+        if clauses and u.field in DURATION_FIELDS:
+            continue  # typed duration inputs above handle these clarifications
+        if income_change and u.field in INCOME_FIELDS:
+            continue
         questions.append({"key": u.field, "kind": "rephrase", "question": u.reason})
     common = {"draft": p.model_dump(), "assumptions": assumptions,
               "unresolved": [u.model_dump() for u in p.unresolved],
               "questions": questions, "interpretation": p.interpretation}
     if questions:
         return {**common, "status": "needs_input", "shock": None}
-    shock = {"income_multiplier": p.income_multiplier,
-             "income_duration_months": duration if income_change else p.income_duration_months,
-             "household_bills_pct_change": p.household_bills_pct_change,
-             "spending_pct_change": p.spending_pct_change,
-             "one_off_costs": [c.model_dump() for c in p.one_off_costs],
-             "recurring_costs": adjustments, "scenario_duration_months": duration,
-             "overlap_acknowledged": overlap_acknowledged}
+
+    one_offs = [c.model_dump() for c in p.one_off_costs]
+    distinct = list(dict.fromkeys(resolved.values()))
+    if len(distinct) <= 1:
+        # One shared window: a single flat shock, exactly as before.
+        duration = distinct[0] if distinct else (duration_months or p.scenario_duration_months or p.income_duration_months)
+        shock = {"income_multiplier": p.income_multiplier,
+                 "income_duration_months": duration if income_change else p.income_duration_months,
+                 "household_bills_pct_change": p.household_bills_pct_change,
+                 "spending_pct_change": p.spending_pct_change,
+                 "one_off_costs": one_offs,
+                 "recurring_costs": list(adjustments.values()), "scenario_duration_months": duration,
+                 "overlap_acknowledged": overlap_acknowledged}
+    else:
+        # Different timelines: one stacked part per duration; each applies only during its own window.
+        parts = []
+        for d in distinct:
+            keys = {k for k, v in resolved.items() if v == d}
+            parts.append({
+                "income_multiplier": p.income_multiplier if "income" in keys else None,
+                "income_duration_months": d if "income" in keys else None,
+                "household_bills_pct_change": p.household_bills_pct_change if "bills" in keys else None,
+                "spending_pct_change": p.spending_pct_change if "spending" in keys else None,
+                "one_off_costs": one_offs if not parts else [],
+                "recurring_costs": [a for i, a in adjustments.items() if f"category_{i}" in keys],
+                "scenario_duration_months": d,
+                "overlap_acknowledged": overlap_acknowledged,
+            })
+        shock = {"parts": parts}
+        assumptions.append("Each change lasts only for its own duration: "
+                           + "; ".join(f"{label} for {resolved[key]} months" for key, label, _ in clauses) + ".")
     if income_change:
-        common["interpretation"] = f"Income will be {p.income_multiplier * 100:g}% of normal inflows for {duration} months. Review all other changes below before applying."
+        income_months = resolved.get("income") or shock.get("income_duration_months")
+        rest = " Other changes keep their own durations." if "parts" in shock else ""
+        common["interpretation"] = (f"Income will be {p.income_multiplier * 100:g}% of normal inflows for "
+                                    f"{income_months} months.{rest} Review all other changes below before applying.")
     elif p.category_changes:
         common["interpretation"] = "Your scenario inputs are resolved. Review all changes below before applying."
     result = {**common, "status": "ok", "shock": shock}
     if baseline:
         result["resolved"] = resolve_in_dollars(p, baseline)
-        result["resolved"]["recurring_change"] = round(sum(c["monthly_change"] for c in adjustments), 2)
+        result["resolved"]["recurring_change"] = round(sum(a["monthly_change"] for a in adjustments.values()), 2)
     return result

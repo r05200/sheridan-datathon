@@ -598,6 +598,16 @@ def _loan_status_meaning(status: str) -> str:
     }.get(status, "No loan record")
 
 
+def _health_band(row: dict[str, Any]) -> str:
+    """Directory badge: a buffer worth 3+ months of spending with non-negative cash flow is healthy,
+    1+ month is watch, less is at risk. Same rule as the vanilla-JS account directory."""
+    spending, buffer = row["spending"], row["buffer"]
+    coverage = buffer / spending if spending > 0 else (math.inf if buffer > 0 else 0)
+    if coverage >= 3 and row["income"] >= spending:
+        return "healthy"
+    return "watch" if coverage >= 1 else "at_risk"
+
+
 def account_directory(filter_name: str = "all") -> dict[str, Any]:
     if filter_name not in FILTERS:
         raise ValueError(f"Unknown account filter. Choose one of: {', '.join(FILTERS)}")
@@ -628,6 +638,8 @@ def account_directory(filter_name: str = "all") -> dict[str, Any]:
             "watchlist_rank": row["watchlist_rank"],
             "watchlist_band": row["watchlist_band"],
             "latest_balance": round(row["latest_balance"], 2),
+            "buffer": round(row["buffer"], 2),
+            "health": _health_band(row),
         })
     matched.sort(key=lambda row: row["account_id"])
     return {

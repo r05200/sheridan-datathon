@@ -16,8 +16,11 @@ export async function api(path, body) {
 const wholeDollars = new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 });
 const cents = new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', minimumFractionDigits: 2 });
 
+const compactDollars = new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', notation: 'compact', maximumFractionDigits: 1 });
+
 export const cash = x => (x == null ? 'Not available' : wholeDollars.format(x));
 export const preciseCash = n => (n == null ? 'Not available' : cents.format(n));
+export const compactCash = x => (x == null ? '—' : compactDollars.format(x));   // chart axis labels: $12.5K
 
 export function runway(obj) {
   if (obj.runway_months === 'no_shortfall') return 'No shortfall';
