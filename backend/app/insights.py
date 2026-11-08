@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from . import config, default_risk
+from .engine import runway
 
 PROFILE_PATH = config.BACKEND_DIR / "data" / "customer_profiles.csv"
 DATA_DIR = Path(os.environ.get("TANGERINE_DATA_DIR", config.BACKEND_DIR.parent / "data"))
@@ -123,6 +124,21 @@ def _history_signals(history: list[dict[str, Any]]) -> dict[str, Any]:
             sum(row["month_end_balance"] for row in last3) / len(last3)
             - sum(row["month_end_balance"] for row in prior3) / len(prior3)
         )
+    history_by_month = {row["month"]: row for row in history}
+    prior_year_rows = []
+    for row in last3:
+        year, month = (int(part) for part in row["month"].split("-"))
+        prior_year_rows.append(history_by_month.get(f"{year - 1:04d}-{month:02d}"))
+    spending_comparison_available = (
+        all(row is not None for row in prior_year_rows)
+        and sum(row["money_out"] for row in prior_year_rows if row is not None) > 0
+    )
+    recent_spending = sum(row["money_out"] for row in last3)
+    prior_year_spending = (
+        sum(row["money_out"] for row in prior_year_rows if row is not None)
+        if spending_comparison_available else None
+    )
+    spending_ratio = recent_spending / prior_year_spending if prior_year_spending else None
     return {
         "latest_month": history[-1]["month"],
         "latest_balance": history[-1]["month_end_balance"],
@@ -142,6 +158,10 @@ def _history_signals(history: list[dict[str, Any]]) -> dict[str, Any]:
         "balance_slope_3m": balance_slope,
         "balance_falling": balance_slope is not None and balance_slope < 0,
         "recent_surplus_3m": sum(row["money_in"] - row["money_out"] for row in last3) / len(last3),
+        "recent_spending_3m": recent_spending,
+        "same_months_prior_year_spending_3m": prior_year_spending,
+        "spending_drift_ratio": spending_ratio,
+        "spending_drift_flag": spending_ratio is not None and spending_ratio > 1.5,
     }
 
 
@@ -333,13 +353,109 @@ def _dataset() -> dict[str, Any]:
     }
 
 
-def account_insights(account_id: int) -> dict[str, Any]:
+def reverse_stress(income: float, spending: float, buffer: float, horizon_months: int = 6) -> dict[str, Any]:
+    baseline_gap = max(spending - income, 0)
+    baseline_coverage = buffer >= horizon_months * baseline_gap
+    zero_income_coverage = buffer >= horizon_months * spending
+    income_loss_pct = None
+    if income > 0 and baseline_coverage:
+        income_loss_pct = (
+            100.0 if zero_income_coverage
+            else max(0.0, min(100.0, 100 * (1 - (spending - buffer / horizon_months) / income)))
+        )
+    target_gap = max(spending - income * 0.5, 0)
+    additional_buffer = max(horizon_months * target_gap - buffer, 0)
+    return {
+        "horizon_months": horizon_months,
+        "baseline_coverage": baseline_coverage,
+        "zero_income_coverage": zero_income_coverage,
+        "maximum_income_loss_pct": round(income_loss_pct, 1) if income_loss_pct is not None else None,
+        "target_income_retained_pct": 50,
+        "additional_buffer_for_target": round(additional_buffer, 2),
+    }
+
+
+def _rounded_runway(buffer: float, income: float, spending: float) -> float | str:
+    value = runway(buffer, income, spending)
+    return round(value, 1) if isinstance(value, (int, float)) else value
+
+
+def portfolio_summary(baselines: dict[int, dict[str, float]]) -> dict[str, Any]:
+    if not baselines:
+        raise InsightsUnavailable("Cannot summarize an empty account portfolio")
+
+    def under_months(value: float | str, months: int) -> bool:
+        return isinstance(value, (int, float)) and value < months
+
+    rows = list(baselines.values())
+    base_runways = [
+        _rounded_runway(row["buffer"], row["income"], row["spending"])
+        for row in rows
+    ]
+    baseline_under_six = sum(under_months(value, 6) for value in base_runways)
+
+    def scenario_counts(income_multiplier: float, bills_change_pct: float, repair: bool = False):
+        runways = []
+        depleted_buffers = 0
+        newly_depleted_buffers = 0
+        for row in rows:
+            buffer = row["buffer"] - (row["spending"] if repair else 0)
+            spending = row["spending"] + bills_change_pct / 100 * row["household_bills"]
+            depleted_buffers += buffer <= 0
+            newly_depleted_buffers += row["buffer"] > 0 and buffer <= 0
+            runways.append(_rounded_runway(
+                buffer, row["income"] * income_multiplier, spending
+            ))
+        under_six = sum(under_months(value, 6) for value in runways)
+        return {
+            "under_six_months": under_six,
+            "additional_under_six_vs_baseline": under_six - baseline_under_six,
+            "buffers_depleted_after_scenario": depleted_buffers,
+            "newly_depleted_buffers": newly_depleted_buffers,
+        }
+
+    income_at_55 = scenario_counts(0.55, 0)
+    income_at_55_and_bills_up_15 = scenario_counts(0.55, 15)
+    income_at_55_and_bills_up_15["additional_under_six_vs_55_percent_income"] = (
+        income_at_55_and_bills_up_15["under_six_months"] - income_at_55["under_six_months"]
+    )
+    return {
+        "as_of": _dataset()["as_of"],
+        "total_accounts": len(rows),
+        "baseline": {
+            "spending_exceeds_income": sum(row["spending"] > row["income"] for row in rows),
+            "under_twelve_months": sum(under_months(value, 12) for value in base_runways),
+            "under_six_months": baseline_under_six,
+            "can_cover_six_months_at_zero_income": sum(
+                row["buffer"] >= 6 * row["spending"] for row in rows
+            ),
+        },
+        "scenarios": {
+            "income_at_55_percent": income_at_55,
+            "income_at_55_percent_and_bills_up_15_percent": income_at_55_and_bills_up_15,
+            "one_month_spending_repair": scenario_counts(1, 0, repair=True),
+        },
+        "method": "Uses full-precision account_baseline values; runway is rounded to one decimal before counting accounts below each threshold. Scenarios hold all changes constant.",
+        "caveat": "These are challenge-formula scenario counts on relabelled Czech financial-history data, not predictions, EI eligibility estimates, or Canadian customer statistics.",
+    }
+
+
+def account_insights(account_id: int, baseline: dict[str, float] | None = None) -> dict[str, Any]:
     data = _dataset()
     row = data["by_id"].get(int(account_id))
     if row is None:
         raise KeyError(account_id)
     profile = data["by_id"][int(account_id)]
     history_rows = data["histories"][int(account_id)]
+    baseline = baseline or {
+        "income": profile["income"],
+        "spending": profile["spending"],
+        "buffer": profile["buffer"],
+    }
+    latest_balance = profile["latest_balance"]
+    buffer = baseline["buffer"]
+    buffer_ratio = latest_balance / buffer if buffer > 0 else None
+    spending_drift_ratio = profile["spending_drift_ratio"]
     return {
         "stress": {
             "negative_month_count": profile["negative_month_count"],
@@ -359,6 +475,30 @@ def account_insights(account_id: int) -> dict[str, Any]:
                 account_id, profile["loan_status"]
             ),
             "last_month": profile["latest_month"],
+            "reverse_stress": reverse_stress(
+                baseline["income"], baseline["spending"], buffer
+            ),
+            "spending_drift": {
+                "available": spending_drift_ratio is not None,
+                "recent_three_months": round(profile["recent_spending_3m"], 2),
+                "same_months_prior_year": (
+                    round(profile["same_months_prior_year_spending_3m"], 2)
+                    if profile["same_months_prior_year_spending_3m"] is not None else None
+                ),
+                "ratio": round(spending_drift_ratio, 4)
+                    if spending_drift_ratio is not None else None,
+                "threshold_ratio": 1.5,
+                "flag": profile["spending_drift_flag"],
+            },
+            "buffer_status": {
+                "baseline_buffer": round(buffer, 2),
+                "latest_month_end_balance": round(latest_balance, 2),
+                "available": buffer_ratio is not None,
+                "latest_to_buffer_ratio": round(buffer_ratio, 4)
+                    if buffer_ratio is not None else None,
+                "below_half": buffer_ratio is not None and buffer_ratio < 0.5,
+                "below_quarter": buffer_ratio is not None and buffer_ratio < 0.25,
+            },
             "income_trend": {
                 "recent_3_month_median": round(profile["recent_income_median_3m"], 2),
                 "official_full_history_median": round(profile["official_income_median"], 2),
@@ -408,6 +548,26 @@ def account_insights(account_id: int) -> dict[str, Any]:
                 if profile["watchlist_band"] else None,
             "validation": data["watchlist_validation"],
         },
+    }
+
+
+def plan_context(account_id: int, baseline: dict[str, float]) -> dict[str, Any]:
+    result = account_insights(account_id, baseline)
+    stress = result["stress"]
+    observations = []
+    if stress["income_trend"]["median_overstates_recent"]:
+        observations.append("Recent recorded income is materially below the full-history median.")
+    if stress["spending_drift"]["flag"]:
+        observations.append("Recent recorded spending is materially above the same-months-last-year comparison.")
+    if stress["buffer_status"]["below_half"]:
+        observations.append("The latest month-end balance is below half of the official buffer proxy.")
+    if stress["balance_trend"]["falling"]:
+        observations.append("The recent three-month average balance is below the prior three-month average.")
+    if stress["negative_month_count"]:
+        observations.append("The recorded history includes at least one month with a day below zero.")
+    return {
+        "historical_observations": observations,
+        "limitation": "Historical observations provide context only; they do not change scenario calculations or predict future conditions.",
     }
 
 

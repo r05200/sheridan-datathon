@@ -85,9 +85,18 @@ def test_missing_field_rejected():
 # ---- orchestration: gemini -> retry -> template -------------------------------------------
 def test_uses_gemini_when_valid_and_never_sends_account_id():
     c = FakeClient(GOOD)
-    out = explainer.explain_plan({**PLAN, "account_id": 1234}, client=c)
+    plan = {
+        **PLAN,
+        "account_id": 1234,
+        "account_context": {
+            "historical_observations": ["Recent recorded spending is materially elevated."],
+            "limitation": "Historical observations are context only.",
+        },
+    }
+    out = explainer.explain_plan(plan, client=c)
     assert out["source"] == "gemini" and out["summary"] == GOOD["summary"]
     assert "1234" not in c.calls[0]["user"] and "account_id" not in c.calls[0]["user"]
+    assert "Recent recorded spending is materially elevated" in c.calls[0]["user"]
 
 
 def test_retries_once_on_invalid_then_succeeds():

@@ -110,7 +110,7 @@ def baseline(account_id: int) -> dict[str, Any]:
         payload = {"account_id": account_id, **db.get_account_baseline(account_id),
                    "loan_payment": db.get_loan_payment(account_id),
                    "flexible_spending": db.get_flexible_spending(account_id)}
-        payload.update(insights.account_insights(account_id))
+        payload.update(insights.account_insights(account_id, payload))
         return payload
     except db.AccountNotFound as e:
         raise _not_found(e)
@@ -122,11 +122,17 @@ def baseline(account_id: int) -> dict[str, Any]:
 def plan(req: PlanRequest) -> dict[str, Any]:
     """Numbers only (fast). The UI shows these first, then calls /api/explain."""
     try:
-        return engine.plan_for_account(req.account_id, req.shock.to_engine(), PlanningOptions(**req.planning.model_dump()))
+        result = engine.plan_for_account(
+            req.account_id, req.shock.to_engine(), PlanningOptions(**req.planning.model_dump())
+        )
+        result["account_context"] = insights.plan_context(req.account_id, result["baseline"])
+        return result
     except db.AccountNotFound as e:
         raise _not_found(e)
     except ValueError as e:
         raise HTTPException(422, str(e))
+    except insights.InsightsUnavailable as e:
+        raise HTTPException(503, str(e)) from None
 
 
 @app.post("/api/explain")
@@ -180,6 +186,14 @@ def tangerine_accounts(filter: str = "all") -> dict[str, Any]:
         return insights.account_directory(filter)
     except ValueError as e:
         raise HTTPException(400, str(e)) from None
+    except insights.InsightsUnavailable as e:
+        raise HTTPException(503, str(e)) from None
+
+
+@app.get("/api/tangerine/portfolio")
+def tangerine_portfolio() -> dict[str, Any]:
+    try:
+        return insights.portfolio_summary(db.get_all_baselines())
     except insights.InsightsUnavailable as e:
         raise HTTPException(503, str(e)) from None
 

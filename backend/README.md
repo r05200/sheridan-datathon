@@ -80,8 +80,25 @@ chat history is not sent as conversational memory.
 The account baseline also returns historical stress signals, recent-versus-typical
 inflow and balance comparisons, an income-quartile/pension peer band, an EI-55%
 comparison for pension-majority accounts, and an eligible-only never-negative
-watchlist rank. The account page visualizes the last 12 months of inflows, outflows,
-and month-end balances, with progress indicators for selected historical measures.
+watchlist rank. It includes a six-month reverse stress test (maximum income loss the
+buffer can cover, plus the extra buffer needed at 50% income retention), a spending
+drift flag comparing the latest three months with those same months one year earlier,
+and a latest month-end balance comparison with the official six-month average buffer.
+These are scenario and historical signals, not forecasts.
+
+`POST /api/plan` also attaches a short `account_context` containing applicable
+historical flags. Gemini may use these as qualitative context for the explanation;
+the deterministic plan calculations do not use or change based on those flags.
+
+The Accounts view includes a portfolio scenario overview from
+`GET /api/tangerine/portfolio`. It reports baseline counts and applies three
+illustrative twists: income retained at 55%, that income scenario plus household
+bills up 15%, and an immediate repair cost equal to one month of typical spending.
+Runway is rounded to one decimal before cohort counts are calculated. The
+55%-income scenario is not an Employment Insurance eligibility estimate; all
+portfolio counts describe the relabelled Czech source data, not Canadian customers.
+The account page visualizes the last 12 months of inflows, outflows, and month-end
+balances, with progress indicators for selected historical measures.
 `GET /api/tangerine/accounts?filter=all` returns all 4,500 accounts;
 filters include `troubled_loans_healthy`, `no_loan_negative`, `negative`, and
 `watchlist`. `GET /api/tangerine/spotlights` serves three frozen account snapshots

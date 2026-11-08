@@ -75,6 +75,7 @@ function renderStressInsights(b){
  const s=b.stress;
  if(!s){$('#stress-insights').replaceChildren();return;}
  const peer=b.peer_context,pension=b.pension_check;
+ const reverse=s.reverse_stress,drift=s.spending_drift,bufferStatus=s.buffer_status;
  const share=s.cash_withdrawal_share==null?'—':`${(s.cash_withdrawal_share*100).toFixed(1)}%`;
  const shareValue=Math.max(0,Math.min(100,(s.cash_withdrawal_share||0)*100));
  const negativeRate=s.observations?100*s.negative_month_count/s.observations:0;
@@ -122,7 +123,44 @@ function renderStressInsights(b){
    </article>
   </div>
   ${pension?`<article class="insight-panel pension-note"><h3>Pension income comparison</h3><p>Official runway: <strong>${runwayText(pension.official_baseline_runway_status,pension.official_baseline_runway_months)}</strong>. EI-at-55% comparison: <strong>${runwayText(pension.ei55_runway_status,pension.ei55_runway_months)}</strong>.</p><p>Employment Insurance does not apply to pension income. The EI figure is an illustrative comparison only.</p></article>`:''}
-  <details class="data-source-note"><summary>About these numbers and data limits</summary><p>${esc(s.data_note)} The source is relabelled PKDD'99 Berka history; districts are Czech, groceries are not a recorded field, and category budgets or one-off prices are user-supplied.</p></details>
+  <div class="insight-panels">
+   <article class="insight-panel ${reverse.baseline_coverage?'':'warning'}">
+    <h3>Six-month income resilience</h3>
+    ${reverse.maximum_income_loss_pct===null
+      ?'<p class="meter-status">No positive stress margin</p>'
+      :`<div class="resilience-meter"><div class="meter-track"><span class="meter-fill" style="width:${reverse.maximum_income_loss_pct}%"></span><i class="meter-target" aria-hidden="true"></i></div><div class="meter-scale"><span>0% income loss</span><span>50% target</span><span>100%</span></div></div>`}
+    <p>${reverse.maximum_income_loss_pct===null
+      ?b.income===0
+        ?'Typical recorded income is $0, so an income-loss percentage does not apply.'
+        :'The buffer does not cover a full six months at baseline income, so there is no survivable income-loss margin.'
+      :`At most <strong>${reverse.maximum_income_loss_pct}%</strong> of typical income could be lost while the buffer still covers six months.`}</p>
+    <p>${reverse.baseline_coverage?'The baseline cash flow is covered for the full six-month horizon.':'The buffer does not cover six months even at baseline income.'}</p>
+    <p>Additional buffer to withstand income at 50% for six months: <strong>${cash(reverse.additional_buffer_for_target)}</strong>.</p>
+    <p>Assumes spending stays constant and uses the buffer for any monthly gap; this is a scenario, not a forecast.</p>
+   </article>
+   <article class="insight-panel ${drift.flag?'warning':''}">
+    <h3>Recent spending versus last year</h3>
+    ${drift.available
+      ?`<div class="compare-bars" role="img" aria-label="Recent spending is ${drift.ratio.toFixed(2)} times the same months a year earlier"><div><span>Same months last year</span><i><b style="width:${Math.min(100,100/drift.ratio)}%"></b></i><strong>${cash(drift.same_months_prior_year)}</strong></div><div><span>Recent three months</span><i><b style="width:${Math.min(100,100*drift.ratio/Math.max(1.5,drift.ratio))}%"></b></i><strong>${cash(drift.recent_three_months)}</strong></div></div><p class="insight-takeaway">${drift.flag?`Spending was ${drift.ratio.toFixed(2)}× the prior-year comparison (above the 1.5× review threshold).`:`No 1.5× spending-drift signal in this comparison.`}</p>`
+      :'<p>Not enough comparable history, or the prior-year spending total was zero.</p>'}
+    <p>This comparison flags a change in recorded outflows; it does not explain the cause or predict future spending.</p>
+   </article>
+   <article class="insight-panel ${bufferStatus.below_half?'warning':''}">
+    <h3>Latest balance versus buffer</h3>
+    ${bufferStatus.available
+      ?`<div class="buffer-meter" role="img" aria-label="Latest balance is ${(bufferStatus.latest_to_buffer_ratio*100).toFixed(0)} percent of the official buffer"><div class="buffer-track"><span class="buffer-fill" style="width:${Math.max(0,Math.min(100,100*bufferStatus.latest_to_buffer_ratio))}%"></span><i class="buffer-quarter" aria-hidden="true"></i><i class="buffer-half" aria-hidden="true"></i></div><div class="meter-scale"><span>0</span><span>50% review mark</span><span>100%</span></div></div>`
+      :'<p class="meter-status">Relative comparison unavailable</p>'}
+    <p>Latest month-end balance: <strong>${cash(bufferStatus.latest_month_end_balance)}</strong>. Official six-month average-balance buffer: <strong>${cash(bufferStatus.baseline_buffer)}</strong>.</p>
+    <p class="insight-takeaway">${!bufferStatus.available
+      ?'A relative comparison is unavailable because the official buffer is not positive.'
+      :bufferStatus.below_quarter
+        ?'The latest month-end balance is below one quarter of the official buffer.'
+        :bufferStatus.below_half
+          ?'The latest month-end balance is below half of the official buffer.'
+          :'The latest month-end balance is at least half of the official buffer.'}</p>
+    <p>Month-end is a snapshot and can differ from the six-month average used in the baseline.</p>
+   </article>
+  </div>
  </section>`;
  $('#stress-insights').innerHTML=html;
 }
@@ -130,8 +168,14 @@ function renderResults(){const p=state.plan,b=state.baseline;if(!p){$('#results'
 const a=p.after_shock;const rows=[['Monthly inflows',cash(p.baseline.income),cash(a.income)],['Monthly spending',cash(p.baseline.spending),cash(a.spending)],['Buffer after immediate costs',cash(p.baseline.buffer),cash(a.buffer)],['Monthly shortfall',cash(Math.max(b.spending-b.income,0)),cash(a.monthly_gap)],['Runway',runway(p.baseline),runway(a)],['Immediate expense','—',cash(a.one_off_costs||0)]];
 let html=`<table class="comparison"><thead><tr><th>Account ${state.account}</th><th>Before</th><th>After</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join('')}</tbody></table>`;
 const d=p.duration_assessment;if(d){html+=`<div class="outcome ${d.covers_duration?'':'danger'}"><h3>${d.covers_duration?'Covered':'Funding gap'} over ${d.months} months</h3><p>${esc(d.assumption)}</p><div class="mini-grid"><div class="mini"><small>Required starting buffer</small><strong>${cash(d.required_starting_buffer)}</strong></div><div class="mini"><small>Additional buffer needed</small><strong>${cash(d.additional_buffer_needed)}</strong></div></div></div>`;html+=chart(p);}
-html+=`<div class="mini-grid"><div class="mini"><small>Required monthly spending reduction</small><strong>${cash(p.backup_plan.monthly_cut_needed)}</strong></div><div class="mini"><small>Immediate funding needed</small><strong>${cash(p.backup_plan.upfront_funding_needed)}</strong></div><div class="mini"><small>Emergency-fund target</small><strong>${cash(p.goal_plan.target_amount)}</strong></div><div class="mini"><small>Time to goal at baseline surplus</small><strong>${p.goal_plan.months_to_goal===null?'Not reachable':p.goal_plan.months_to_goal+' months'}</strong></div></div>${renderActionPlan(p)}<div id="explanation" class="explanation"><p>Preparing the explanation…</p></div><details class="data"><summary>Inspect all calculated values and account data</summary><pre>${esc(JSON.stringify({account:b,plan:p},null,2))}</pre></details><p style="font-size:10px;color:var(--muted)">Amounts are displayed as whole dollars. Estimates are scenario inputs, not observed category budgets.</p>`;$('#results').innerHTML=html;bindPlanning();}
+html+=`<div class="mini-grid"><div class="mini"><small>Required monthly spending reduction</small><strong>${cash(p.backup_plan.monthly_cut_needed)}</strong></div><div class="mini"><small>Immediate funding needed</small><strong>${cash(p.backup_plan.upfront_funding_needed)}</strong></div><div class="mini"><small>Emergency-fund target</small><strong>${cash(p.goal_plan.target_amount)}</strong></div><div class="mini"><small>Time to goal at baseline surplus</small><strong>${p.goal_plan.months_to_goal===null?'Not reachable':p.goal_plan.months_to_goal+' months'}</strong></div></div>${renderActionPlan(p)}${renderPlanContext(p)}<div id="explanation" class="explanation"><p>Preparing the explanation…</p></div><details class="data"><summary>Inspect all calculated values and account data</summary><pre>${esc(JSON.stringify({account:b,plan:p},null,2))}</pre></details><p style="font-size:10px;color:var(--muted)">Amounts are displayed as whole dollars. Estimates are scenario inputs, not observed category budgets.</p>`;$('#results').innerHTML=html;bindPlanning();}
 const preciseCash = n => n == null ? '—' : new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD',minimumFractionDigits:2}).format(n);
+function renderPlanContext(p){
+ const context=p.account_context;
+ if(!context)return '';
+ const observations=context.historical_observations||[];
+ return `<section class="plan-context" aria-labelledby="plan-context-title"><h3 id="plan-context-title">Historical context for this plan</h3>${observations.length?`<ul>${observations.map(item=>`<li>${esc(item)}</li>`).join('')}</ul>`:'<p>No additional historical flags were identified for this account.'}<small>${esc(context.limitation)}</small></section>`;
+}
 function renderActionPlan(p){
  const a=p.action_plan;if(!a)return '';
  const g=a.goal,b=a.backup,settings=state.planning;
