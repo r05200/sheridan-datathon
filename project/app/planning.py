@@ -1,6 +1,7 @@
 """Deterministic preparation and contingency plans; no generated financial advice."""
 from dataclasses import dataclass
 import math
+from .timeline import assess
 
 
 @dataclass
@@ -11,8 +12,11 @@ class PlanningOptions:
     confirmed_monthly_cut: float = 0
     confirmed_extra_income: float = 0
     confirmed_upfront_funds: float = 0
+    target_amount_override: float | None = None
 
     def validate(self):
+        if self.target_amount_override is not None and (not math.isfinite(self.target_amount_override) or not 0 < self.target_amount_override <= 1_000_000):
+            raise ValueError("Custom fund target must be positive and at most $1,000,000")
         if self.monthly_contribution is not None and self.monthly_contribution <= 0:
             raise ValueError("Enter a positive savings contribution, or leave it blank for the available surplus")
         for name, ceiling in [('target_months', 12), ('deadline_months', 120)]:
@@ -39,7 +43,7 @@ def dollars(value):
     return f'${value:,.2f}'
 
 
-def build_action_plan(baseline, income_after, spending_after, one_off, duration, options):
+def build_action_plan(baseline, income_after, spending_after, one_off, duration, options, monthly_budget=None):
     options.validate()
     income, spending, buffer = baseline['income'], baseline['spending'], baseline['buffer']
     surplus = income - spending
@@ -48,7 +52,7 @@ def build_action_plan(baseline, income_after, spending_after, one_off, duration,
     if contribution > capacity:
         raise ValueError(f'This account currently supports at most {dollars(capacity)}/month of saving. '
                          'Use a smaller contribution; the plan shows the cash-flow improvement needed for your deadline.')
-    target = up(options.target_months * spending)
+    target = up(options.target_amount_override if options.target_amount_override is not None else options.target_months * spending)
     remaining = up(target - buffer)
     target_met = remaining == 0
     months = 0 if target_met else math.ceil(round(remaining / contribution, 10)) if contribution > 0 else None
@@ -58,7 +62,7 @@ def build_action_plan(baseline, income_after, spending_after, one_off, duration,
     goal_status = ('target_met' if target_met else 'no_surplus' if capacity == 0 else
                    'no_contribution' if contribution == 0 else 'saving')
     if target_met:
-        goal_steps = [f'The current buffer already meets the {options.target_months}-month target. '
+        goal_steps = [f'The current buffer already meets your chosen fund target. '
                       'Preserve that buffer and reassess it when income or spending changes.']
     elif capacity == 0:
         goal_steps = [f'First close the baseline monthly shortfall of {dollars(up(-surplus))}.',
@@ -78,6 +82,8 @@ def build_action_plan(baseline, income_after, spending_after, one_off, duration,
     milestone_months = sorted({0, 1, options.deadline_months, months or options.deadline_months})
     milestones = [{'month': n, 'projected_buffer': round(buffer + contribution * n, 2)} for n in milestone_months]
     goal = {
+        'target_basis': 'custom_amount' if options.target_amount_override is not None else 'months_of_spending',
+        'target_amount_override': options.target_amount_override, 'normal_monthly_spending': round(spending,2),
         'status': goal_status, 'target_months': options.target_months, 'target_amount': target,
         'current_buffer': round(buffer, 2), 'amount_still_needed': remaining,
         'progress_pct': round(min(100, max(0, buffer) / target * 100), 1) if target else (100 if target_met else 0),
@@ -104,6 +110,15 @@ def build_action_plan(baseline, income_after, spending_after, one_off, duration,
     additional_improvement = up(gap - max(adjusted_buffer, 0) / duration) if duration else up(gap)
     ending = adjusted_buffer + duration * monthly_net if duration else None
     covered = adjusted_buffer >= 0 and ending >= 0 if duration else None
+    adjusted_timeline = None
+    if monthly_budget:
+        adjusted_budgets = [{'income': m['income'] + options.confirmed_extra_income,
+                            'spending': m['spending'] - options.confirmed_monthly_cut} for m in monthly_budget]
+        adjusted_timeline = assess(adjusted_buffer, adjusted_budgets)
+        ending = adjusted_timeline['ending']
+        covered = adjusted_timeline['covered']
+        additional_improvement = up(adjusted_timeline['improvement'])
+        horizon_need = up(adjusted_timeline['peak_gap'] - adjusted_buffer)
     status = ('immediate_funding_gap' if upfront_remaining else
               'covered' if covered else 'funding_gap' if duration else
               'stabilized' if monthly_net >= 0 else 'needs_duration')
@@ -149,4 +164,9 @@ def build_action_plan(baseline, income_after, spending_after, one_off, duration,
         'assumption': 'Entered cuts and extra funds are user-confirmed scenario inputs, not recommendations inferred from withdrawals. '
                       'All changes are held constant over the shared horizon; no borrowing or recovery is assumed.',
     }
+    if adjusted_timeline:
+        backup['monthly_projection_after_actions'] = adjusted_timeline['rows']
+        backup['minimum_buffer_after_actions'] = round(adjusted_timeline['minimum'],2)
+        backup['maximum_monthly_spending_for_horizon'] = down(adjusted_spending - additional_improvement)
+        backup['assumption'] = 'Each temporary change ends after its selected month. Confirmed backup actions apply throughout the assessment period.'
     return {'goal': goal, 'backup': backup}

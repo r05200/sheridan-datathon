@@ -9,13 +9,13 @@ app/gemini_client.py shared client: configurable total budget, 1 retry, logging,
 app/explainer.py     Part 1: Gemini explain -> number validation -> retry -> template fallback -> cache
 app/shock_parser.py  Part 2: text -> slider values, range validation, visible assumptions
 app/main.py          POST /api/plan, /api/explain, /api/parse-shock; GET /api/accounts/{id}/baseline
-sql/                 schema.sql, account_baseline.sql (the view)
+sql/                 legacy raw-CSV schema and baseline-view reference (not used by the live app)
 data/account_baseline.csv   offline export used when the database is unreachable (committed)
 ```
 
 ## Run
 ```
-cd backend
+cd project
 pip install -r requirements.txt
 cp .env.example .env            # add GEMINI_API_KEY / DATABASE_URL (never commit .env)
 uvicorn app.main:app --reload
@@ -23,12 +23,27 @@ uvicorn app.main:app --reload
 With no keys set it still works: baselines come from the offline export, explanations from the template, and the
 parser returns "Couldn't read that, please use the sliders."
 
-## Database setup (Tiger Data)
+## Database setup (TigerData)
+
+The live app reads `public.account_metrics` in TigerData using the PostgreSQL driver.
+Set `DATABASE_URL` to your TigerData service connection URL (including `sslmode=require`)
+and `DB_DISABLED=0` in `project/.env`. No separate SQL database or baseline view is required.
+
+The table must include `account_id`, `income`, `spending`, `household_bills`, `fixed_costs`,
+`buffer`, `months_of_history`, `loan_payment`, `card_withdrawals`, `cash_withdrawals`, and
+`transfers_out_other`. The engine still computes scenario and goal results itself.
+
+```bash
+./.venv/bin/python scripts/check_db.py
+./.venv/bin/python -m uvicorn app.main:app --reload --port 8001
 ```
-DATABASE_URL=... python scripts/load_csvs.py /path/to/data   # tables, \copy-style load, view
-DATABASE_URL=... python scripts/check_db.py                   # row counts vs brief (185,326 / 682 / 4,500)
-python scripts/export_baseline.py /path/to/data               # refresh the offline export
-```
+
+The checker queries TigerData directly and verifies the columns and 4,500-account count.
+The historical `scripts/load_csvs.py` and `sql/` files describe the old raw-CSV schema;
+they do not create the current `account_metrics` table and should not be run against the
+current TigerData service. `scripts/export_baseline.py /path/to/data` builds the local
+`data/account_baseline.csv` fallback. Its filename is retained for offline compatibility.
+Use `DB_DISABLED=1` only when intentionally running from this local export.
 
 ## Gemini
 `python scripts/gemini_smoke.py` (one test call) · `python scripts/pregenerate.py <account ids>` (cache demo accounts)
@@ -172,3 +187,46 @@ The web app displays editable goal and backup cards under **Make a plan**. New s
 reset backup actions; the normal-budget goal preferences stay with the account until
 another account is loaded. Plans assume constant cash flow, no interest, no new
 borrowing and no automatic post-shock recovery. No transactions are executed.
+
+## Separate change durations
+
+Scenario review offers one duration per recurring change and an overall viewing period,
+all between 1 and 60 months. All changes begin in month 1. After a change expires, that
+component returns to its baseline amount; this includes income, so confirm recovery timing
+with the customer. One-off expenses are deducted once, before month 1.
+
+API: use `shock.effect_durations` keys `income`, `bills`, `spending`, and `category_0`,
+`category_1`, etc. in recurring-cost order. Recurring-cost entries may also specify
+`duration_months`. The viewing period is `scenario_duration_months` and must include all
+selected durations. An unspecified component duration lasts the viewing period.
+`monthly_projection` contains the actual monthly income, spending, net change and balance.
+The comparison runway is explicitly a constant month-one reference, not the depletion
+time of the varying scenario. Funding requirements and coverage check every monthly
+balance, including any early deficit followed by later recovery. Backup actions apply
+throughout the viewing period; `monthly_projection_after_actions` shows their effect.
+Legacy scenarios with a single shared duration retain their original calculation contract.
+
+## Customer goals and peer benchmarks
+
+The default 3-month fund and 12-month deadline are editable starting suggestions.
+Customers can instead specify `planning.target_amount_override` (positive dollars,
+up to $1,000,000); this overrides the months-of-spending target. Required saving,
+progress and timeline use the selected target. Contributions cannot exceed the
+account's observed normal monthly surplus.
+
+`GET /api/accounts/{id}/peers` compares account-level metrics from TigerData's
+`public.account_metrics` (or the local baseline export when offline). The target
+account is excluded. Candidates must have the same positive/zero loan-payment
+status and fall within 30% of income and 40% of fixed costs and loan payments
+(with a $200 cost tolerance floor). Sum-of-squared normalized distances ranks
+candidates; the closest 50 are retained. Fewer than 10 matches suppress benchmarks.
+These thresholds are transparent product heuristics, not validated affordability
+ratings. Only aggregate medians and sample counts are returned.
+
+Benchmarks include total spending, household bills, cash withdrawals, card withdrawals
+and other outgoing transfers. They use medians of the accounts' monthly metrics,
+not pooled transaction purchases. Total and channel gaps overlap and must not be
+summed. Above-median values trigger review suggestions, not automatic cuts or
+claims that expenses are discretionary. Customers choose any feasible reduction
+and explicitly enter it into the backup budget before recalculating. Matching
+does not account for household size, location, loan balances or interest rates.

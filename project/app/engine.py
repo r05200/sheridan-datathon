@@ -10,6 +10,7 @@ import math
 from typing import Any
 
 from . import db
+from .timeline import monthly_budgets, assess
 from .planning import PlanningOptions, build_action_plan
 
 GOAL_MONTHS_OF_SPENDING = 3
@@ -29,6 +30,7 @@ class RecurringCost:
     label: str
     monthly_change: float
     source: str = "user_estimate"
+    duration_months: int | None = None
 
 
 @dataclass
@@ -43,6 +45,7 @@ class Shock:
     recurring_costs: list[RecurringCost] = field(default_factory=list)
     scenario_duration_months: int | None = None
     overlap_acknowledged: bool = False
+    effect_durations: dict[str, int] = field(default_factory=dict)
 
     @property
     def is_empty(self) -> bool:
@@ -94,8 +97,10 @@ def shock_label(s: Shock) -> str:
         parts.append(f"spending {s.spending_pct_change:+g}%")
     for c in s.one_off_costs:
         parts.append(f"one-off cost: {c.label}")
-    for c in s.recurring_costs:
-        parts.append(f"{c.label} {c.monthly_change:+g}/month")
+    for i,c in enumerate(s.recurring_costs):
+        duration=s.effect_durations.get(f"category_{i}",c.duration_months)
+        suffix=f" for {duration} months" if duration else ""
+        parts.append(f"{c.label} {c.monthly_change:+g}/month{suffix}")
     text = ", ".join(parts)
     return text[0].upper() + text[1:]
 
@@ -114,9 +119,6 @@ def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Sh
         spending_after += shock.spending_pct_change / 100 * spending
     if shock.recurring_costs and shock.spending_pct_change and not shock.overlap_acknowledged:
         raise ValueError("Overall spending and category changes overlap. Confirm how they should combine.")
-    if (shock.scenario_duration_months and shock.income_duration_months
-            and shock.scenario_duration_months != shock.income_duration_months):
-        raise ValueError("Different shock durations need separate scenarios; use one shared duration for now.")
     if (shock.household_bills_pct_change and not shock.overlap_acknowledged and any(
             any(word in c.label.lower() for word in ("rent", "utilit", "mortgage", "household", "bill"))
             for c in shock.recurring_costs)):
@@ -136,17 +138,35 @@ def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Sh
 
     # An income shock that ends: the savings only need to cover the shock duration.
     duration = shock.scenario_duration_months or shock.income_duration_months
-    # A horizon assessment holds all supplied changes constant over this window.
+    explicit_durations = list(shock.effect_durations.values()) + [c.duration_months for c in shock.recurring_costs if c.duration_months]
+    allowed_keys = {'income', 'bills', 'spending'} | {f'category_{i}' for i in range(len(shock.recurring_costs))}
+    if set(shock.effect_durations) - allowed_keys:
+        raise ValueError('Unknown recurring change in effect_durations')
+    for value in explicit_durations:
+        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 60:
+            raise ValueError('Each effect duration must be a whole number from 1 to 60 months')
+    duration = duration or (max(explicit_durations) if explicit_durations else None)
+    if explicit_durations and max(explicit_durations) > duration:
+        raise ValueError('Assessment period must include every effect duration')
+    variable = bool(explicit_durations) or bool(shock.income_duration_months and duration and shock.income_duration_months != duration)
+    if shock.income_duration_months and duration and shock.income_duration_months > duration:
+        raise ValueError('Assessment period must include the income change duration')
+    budgets = monthly_budgets(baseline, shock, duration) if variable and duration else None
+    timeline = assess(buffer_after, budgets) if budgets else None
+    # Legacy scenarios with no separate durations retain their shared horizon.
+
     # It is not a forecast of conditions after income replacement ends.
     upfront_gap = max(0.0, -buffer_after)
     required_buffer = one_off_total + duration * gap_after if duration else None
+    if timeline:
+        required_buffer = one_off_total + timeline['peak_gap']
     funding_gap = max(0.0, required_buffer - buffer) if duration else None
 
     preferences = planning or PlanningOptions()
-    action_plan = build_action_plan(baseline, income_after, spending_after, one_off_total, duration, preferences)
+    action_plan = build_action_plan(baseline, income_after, spending_after, one_off_total, duration, preferences, monthly_budget=budgets)
 
     # --- goal plan: emergency fund of N months of spending, funded from baseline surplus ---
-    target = preferences.target_months * spending
+    target = action_plan["goal"]["target_amount"]
     capacity = action_plan["goal"]["monthly_contribution"]
     if buffer >= target:
         months_to_goal: float | None = 0
@@ -164,6 +184,8 @@ def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Sh
     else:
         cut_needed = gap_after
     # Whole-dollar recommendations must not round down below the required cut.
+    if timeline:
+        cut_needed = timeline["improvement"]
     recommended_cut = math.ceil(round(cut_needed, 10))
     # Withdrawal/transfer categories do not identify discretionary purchases.
     # Only confirmed user budgets could establish whether a proposed cut is feasible.
@@ -191,7 +213,7 @@ def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Sh
                         "monthly_gap": _money(gap_after), "runway_months": r(after_runway),
                         "buffer": _money(buffer_after),
                         "runway_capped": gap_after > 0 and buffer_after > 120 * gap_after},
-        "goal_plan": {"target_months_of_spending": preferences.target_months, "target_amount": _money(target),
+        "goal_plan": {"target_months_of_spending": (_months(target / spending) if preferences.target_amount_override is not None and spending > 0 else preferences.target_months), "target_amount": _money(target),
                       "monthly_savings_capacity": _money(capacity), "months_to_goal": r(months_to_goal)},
         "backup_plan": {"monthly_cut_needed": recommended_cut,
                         "flexible_spending": {k: _money(v) for k, v in flexible.items()},
@@ -213,9 +235,16 @@ def build_plan(baseline: dict[str, float], flexible: dict[str, float], shock: Sh
             "required_starting_buffer": math.ceil(round(required_buffer, 10)),
             "additional_buffer_needed": math.ceil(round(funding_gap, 10)),
             "covers_duration": buffer > 0 and funding_gap == 0,
-            "ending_buffer": _money(buffer_after + duration * (income_after - spending_after)),
-            "assumption": "All supplied shocks remain in effect over this assessment window.",
+            "ending_buffer": _money(timeline["ending"] if timeline else buffer_after + duration * (income_after - spending_after)),
+            "assumption": ("Each change ends after its selected duration and returns to the normal baseline. All changes start in month 1; one-off costs are paid upfront." if timeline else "All supplied shocks remain in effect over this assessment window."),
         }
+    if timeline:
+        plan['monthly_projection'] = timeline['rows']
+        plan['shock']['effect_durations'] = {**shock.effect_durations,
+            **{f'category_{i}': c.duration_months for i,c in enumerate(shock.recurring_costs) if c.duration_months and f'category_{i}' not in shock.effect_durations}}
+        plan['duration_assessment']['covers_duration'] = timeline['covered']
+        plan['duration_assessment']['minimum_buffer'] = round(timeline['minimum'],2)
+        plan['after_shock']['runway_basis'] = 'Month-one spending and income held constant; see monthly projection for temporary changes.'
     if one_off_total:
         plan["after_shock"]["one_off_costs"] = _money(one_off_total)
         plan["after_shock"]["buffer"] = _money(buffer_after)

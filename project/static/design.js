@@ -6,6 +6,10 @@
  function show(view){
   if(!['users','customer','stress','plan'].includes(view))view='users';
   document.body.dataset.view=view;
+  const hero=document.querySelector('.intro');
+  hero.querySelector('.eyebrow').textContent=view==='plan'?'YOUR GOAL & BACKUP PLAN':'YOUR FINANCIAL WHAT-IF LAB';
+  hero.querySelector('h1').innerHTML=view==='plan'?'Build your safety cushion.':'Your money,<br>a little clearer.';
+  hero.querySelector('.sub').textContent=view==='plan'?'Choose your goal. Test your backup budget. See what it takes.':'Explore an account. Apply a shock. Find the buffer you need.';
   document.querySelector('#user-database').hidden=view!=='users';
   document.querySelector('#dashboard').hidden=view==='users';
   document.querySelectorAll('.cushion-tabs button').forEach(b=>{if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});

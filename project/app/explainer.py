@@ -55,7 +55,12 @@ Hard rules:
    monthly_gap is spending minus income when positive. Goal saving uses normal pre-shock surplus.
    months_to_goal null means the goal cannot be reached at the current saving rate, NOT an unknown
    or uncalculated time. Say this clearly and explain that spending must fall or income must rise.
-9. If action_plan is present, use action_plan.goal for Your goal and action_plan.backup for
+9. If monthly_projection is present, changes have different durations. Each monthly row is authoritative;
+   temporary changes revert to baseline after their duration. after_shock is the month-one budget.
+   Its runway is a constant month-one reference, not the depletion time of this varying scenario.
+   Describe the selected-window coverage and ending balance from duration_assessment. Do not imply
+   that every expense or reduced income lasts the entire window.
+   If action_plan is present, use action_plan.goal for Your goal and action_plan.backup for
    Contingency plan. These include the selected saving contribution, whole months to goal,
    deadline, remaining target, and revised budget after confirmed cuts, extra income and upfront funds.
    additional_monthly_improvement_needed is what remains AFTER those actions.
@@ -188,6 +193,12 @@ def template_explanation(plan: dict) -> dict[str, str]:
                    f"{_d(a['income'])} comes in against {_d(a['spending'])} going out, a gap of "
                    f"{_d(a['monthly_gap'])} a month. Your {_d(remaining)} remaining buffer would last {runway_text}.")
 
+    if plan.get('monthly_projection'):
+        d = plan['duration_assessment']
+        summary = (f"Each change lasts for its selected duration. After immediate costs, the buffer is {_d(remaining)}. "
+                   f"Over {_n(d['months'])} months, the projected ending balance is {_d(d['ending_buffer'])}. "
+                   + ("The buffer covers every month." if d['covers_duration'] else "The buffer does not cover every month; use the backup plan to close the gap."))
+
     # goal plan
     mtg = g["months_to_goal"]
     target = f"{_d(g['target_amount'])} ({_n(g['target_months_of_spending'])} months of spending)"
@@ -230,7 +241,7 @@ def template_explanation(plan: dict) -> dict[str, str]:
                       f"After your entered actions, another {_d(ab['additional_monthly_improvement_needed'])} "
                       "per month in lower spending or extra income is needed.")
         elif ab['covers_duration_after_actions']:
-            backup = (f"Your entered actions bring monthly income to {_d(ab['income_after_actions'])} and spending "
+            backup = (f"Your entered actions bring {'month-one' if plan.get('monthly_projection') else 'monthly'} income to {_d(ab['income_after_actions'])} and spending "
                       f"to {_d(ab['spending_after_actions'])}. This covers {_n(ab['duration_months'])} months, "
                       f"leaving {_d(ab['ending_buffer_after_actions'])}.")
         elif ab['additional_monthly_improvement_needed']:

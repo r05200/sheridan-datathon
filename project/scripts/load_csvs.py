@@ -1,4 +1,7 @@
-"""Create tables, load the CSVs, and create the account_baseline view in Postgres.
+"""LEGACY raw-CSV loader; not the current TigerData account_metrics importer.
+
+Do not run this against the current TigerData service. It targets the historical raw schema.
+Create tables, load the CSVs, and create the account_baseline reference view in Postgres.
 
 Usage: DATABASE_URL=... python scripts/load_csvs.py /path/to/data
 (transactions.csv is not loaded; ~100 MB, only add it if a feature needs it.)

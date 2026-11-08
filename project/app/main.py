@@ -10,7 +10,7 @@ from pathlib import Path
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, db, engine, explainer, shock_parser
+from . import config, db, engine, explainer, shock_parser, insights
 from .shock_parser import LIMITS
 from .planning import PlanningOptions
 
@@ -40,6 +40,7 @@ class RecurringModel(BaseModel):
     label: str = Field(min_length=1, max_length=100)
     monthly_change: float = Field(ge=-1_000_000, le=1_000_000, allow_inf_nan=False)
     source: str = "user_estimate"
+    duration_months: int | None = Field(None, ge=1, le=60)
 
 
 class ShockModel(BaseModel):
@@ -54,6 +55,7 @@ class ShockModel(BaseModel):
     recurring_costs: list[RecurringModel] = Field(default_factory=list)
     scenario_duration_months: int | None = Field(None, ge=1, le=60)
     overlap_acknowledged: bool = False
+    effect_durations: dict[str, int] = Field(default_factory=dict)
 
     def to_engine(self) -> engine.Shock:
         return engine.Shock(
@@ -61,12 +63,13 @@ class ShockModel(BaseModel):
             self.spending_pct_change,
             [engine.OneOffCost(c.label, c.amount_dollars, c.multiple_of_monthly_spending)
              for c in self.one_off_costs],
-            recurring_costs=[engine.RecurringCost(c.label, c.monthly_change, c.source) for c in self.recurring_costs],
+            recurring_costs=[engine.RecurringCost(c.label, c.monthly_change, c.source, c.duration_months) for c in self.recurring_costs],
             scenario_duration_months=self.scenario_duration_months,
-            overlap_acknowledged=self.overlap_acknowledged)
+            overlap_acknowledged=self.overlap_acknowledged, effect_durations=self.effect_durations)
 
 
 class PlanningModel(BaseModel):
+    target_amount_override: float | None = Field(None, gt=0, le=1_000_000, allow_inf_nan=False)
     target_months: int = Field(3, ge=1, le=12)
     deadline_months: int = Field(12, ge=1, le=120)
     monthly_contribution: float | None = Field(None, gt=0, le=1_000_000, allow_inf_nan=False)
@@ -107,9 +110,16 @@ def health() -> dict[str, Any]:
 @app.get("/api/accounts/{account_id}/baseline")
 def baseline(account_id: int) -> dict[str, Any]:
     try:
-        return {"account_id": account_id, **db.get_account_baseline(account_id),
-                "loan_payment": db.get_loan_payment(account_id),
-                "flexible_spending": db.get_flexible_spending(account_id)}
+        result = {"account_id": account_id, **db.get_account_baseline(account_id),
+                  "loan_payment": db.get_loan_payment(account_id),
+                  "flexible_spending": db.get_flexible_spending(account_id)}
+        try:
+            result.update(insights.account_insights(account_id, result))
+            result["history_source"] = "bundled_challenge_snapshot"
+        except (insights.InsightsUnavailable, KeyError, OSError, ValueError):
+            # Supplemental history must not prevent live baseline/scenario use.
+            result["history_available"] = False
+        return result
     except db.AccountNotFound as e:
         raise _not_found(e)
 
@@ -151,6 +161,7 @@ class ResolveRequest(BaseModel):
     duration_months: int | None = Field(None, ge=1, le=60)
     income_replacement_pct: float | None = Field(None, ge=0, le=150, allow_inf_nan=False)
     overlap_acknowledged: bool = False
+    effect_durations: dict[str, int] = Field(default_factory=dict)
 
 
 @app.post("/api/resolve-shock")
@@ -158,7 +169,7 @@ def resolve_shock(req: ResolveRequest):
     try:
         base = db.get_account_baseline(req.account_id)
         return shock_parser.resolve_draft(req.draft, base, req.category_amounts,
-                                          req.duration_months, req.overlap_acknowledged, req.income_replacement_pct)
+                                          req.duration_months, req.overlap_acknowledged, req.income_replacement_pct, req.effect_durations)
     except db.AccountNotFound as e:
         raise _not_found(e)
     except ValueError as e:
@@ -189,3 +200,12 @@ def account_directory(page: int = Query(1, ge=1), search: str = Query("", max_le
         row['monthly_cash_flow'] = round(net, 2)
     return {"accounts": rows, "total": total, "page": page, "page_size": 30,
             "has_next": page * 30 < total, "has_previous": page > 1}
+
+
+@app.get("/api/accounts/{account_id}/peers")
+def peer_comparison(account_id: int):
+    from .peers import compare_peers
+    try:
+        return compare_peers(account_id, db.get_peer_metrics())
+    except db.AccountNotFound as error:
+        raise _not_found(error)

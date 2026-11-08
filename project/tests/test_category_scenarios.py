@@ -62,7 +62,7 @@ def test_duration_and_overlap_need_answers():
 def test_bad_category_operation_and_conflicting_duration_rejected():
     with pytest.raises(ValueError, match='exactly one'):
         sp.resolve_draft(draft(category_changes=[{'category':'rent','pct_change':10,'monthly_delta':100}]), BASE)
-    with pytest.raises(ValueError, match='same duration'):
+    with pytest.raises(ValueError, match='Assessment period'):
         sp.resolve_draft(draft(income_multiplier=.55,income_duration_months=6), BASE, duration_months=3)
 
 
