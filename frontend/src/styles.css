@@ -2524,6 +2524,19 @@ button.directory-account .directory-arrow {
 .lin-node.branch .lin-text small {
   font-size: var(--fs-caption);
 }
+/* Divider between the "Your starting point" steps and the "A closer look" steps. */
+.lineage .lin-section {
+  margin: 0;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: #fff;
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  animation: lin-in 0.35s ease-out 0.15s both;
+}
 @keyframes lin-grow {
   from {
     transform: scaleY(0);

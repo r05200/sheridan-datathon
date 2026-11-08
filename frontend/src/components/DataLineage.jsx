@@ -28,7 +28,108 @@ function buildSteps(b, account) {
       merge: { title: 'Buffer ÷ monthly shortfall, capped at 120', value: runway(baselineRunway(b)), label: 'Baseline runway' },
     },
     { title: 'Saved to account_metrics' },
+    ...insightSteps(b),
   ];
+}
+
+const pct = x => (x == null ? '—' : `${Math.round(x * 100)}%`);
+
+// The steps behind "A closer look at this account" (backend/app/insights.py). Skipped if insights are unavailable.
+function insightSteps(b) {
+  const s = b.stress;
+  if (!s) return [];
+  const rev = s.reverse_stress;
+  const drift = s.spending_drift;
+  const buf = s.buffer_status;
+  const inc = s.income_trend;
+  const peer = b.peer_context;
+  const watch = b.watchlist;
+  const pension = b.pension_check;
+  const loan = s.loan_risk;
+  const steps = [
+    { section: 'A closer look at this account' },
+    { title: 'Read the full monthly history', detail: `${s.observations} months · money in and out, month-end and lowest balance · latest ${s.last_month}` },
+    {
+      columns: [{ title: 'Monthly inflows' }, { title: 'Monthly spending' }, { title: 'Savings buffer' }],
+      merge: {
+        title: `Reverse stress test over ${rev.horizon_months} months`,
+        detail: 'Largest income drop the savings can absorb',
+        value: rev.maximum_income_loss_pct != null ? `${rev.maximum_income_loss_pct}%` : rev.zero_income_coverage ? '100%' : 'Not covered',
+        label: 'Income could fall by',
+      },
+    },
+  ];
+  if (drift.available) {
+    steps.push({
+      columns: [
+        { title: 'Last 3 months', detail: cash(drift.recent_three_months) },
+        { title: 'Same 3 months last year', detail: cash(drift.same_months_prior_year) },
+      ],
+      merge: { title: 'Compare spending, flag above 1.5×', value: `${drift.ratio.toFixed(2)}×`, label: 'Spending vs last year' },
+    });
+  }
+  if (buf.available) {
+    steps.push({
+      columns: [
+        { title: 'Latest month-end balance', detail: cash(buf.latest_month_end_balance) },
+        { title: 'Usual savings buffer', detail: cash(buf.baseline_buffer) },
+      ],
+      merge: { title: 'Latest ÷ usual, flag below half', value: pct(buf.latest_to_buffer_ratio), label: 'Savings vs usual' },
+    });
+  }
+  steps.push(
+    {
+      columns: [
+        { title: 'Median of last 3 months', detail: cash(inc.recent_3_month_median) },
+        { title: 'Median of all months', detail: cash(inc.official_full_history_median) },
+      ],
+      merge: { title: 'Compare, flag if recent is under 80%', value: cash(inc.recent_3_month_median), label: 'Recent monthly income' },
+    },
+    {
+      title: 'Scan every month for trouble',
+      detail: `${s.negative_month_count} months below $0 · lowest balance ${cash(s.worst_observed_balance)}`,
+      value: pct(s.cash_withdrawal_share),
+      label: 'Spent as cash',
+    },
+  );
+  if (peer) {
+    steps.push({
+      columns: [{ title: `Income quartile ${peer.income_quartile}` }, { title: peer.pension_majority ? 'Mostly pension income' : 'Not mostly pension' }],
+      merge: {
+        title: `Rank runway against ${peer.peer_count.toLocaleString()} similar accounts`,
+        value: `${Math.round(peer.runway_percentile)}%`,
+        label: 'Savings last longer than',
+      },
+    });
+  }
+  steps.push(watch.eligible
+    ? {
+        columns: [{ title: 'Latest balance' }, { title: '3-month surplus' }, { title: 'Balance trend' }],
+        merge: {
+          title: `Rank against ${watch.eligible_accounts.toLocaleString()} never-negative accounts`,
+          detail: 'Equal weight to each; top 5% Priority, next 15% Watch',
+          value: watch.band,
+          label: 'Past-account comparison',
+        },
+      }
+    : { title: 'Past-account comparison skipped', detail: 'This account has gone below $0 before' });
+  if (pension) {
+    steps.push({
+      title: 'Pension check: income at 55%',
+      detail: 'Employment Insurance does not apply to pension income',
+      value: pension.ei55_runway_status === 'no_shortfall' ? 'No shortfall' : `${pension.ei55_runway_months} months`,
+      label: 'Runway at 55%',
+    });
+  }
+  if (loan?.available) {
+    steps.push({
+      title: 'Compare the loan with past loans',
+      detail: `3 months of records before it began · ${loan.comparison_group_size.toLocaleString()} active loans`,
+      value: loan.band.replace(' relative ranking', ''),
+      label: 'Loan group',
+    });
+  }
+  return steps;
 }
 
 // Give every step its beat number: a plain node is one beat; a split is two (branches, then the merge).
@@ -99,7 +200,7 @@ export default function DataLineage({ baseline, account, onBack }) {
         <div>
           <p className="eyebrow">DATA LINEAGE · ACCOUNT {account}</p>
           <h1>How did we get this data?</h1>
-          <p className="sub">Every number in “Your starting point” comes from two tables. Here is each step, in order.</p>
+          <p className="sub">Every number on the Customer page comes from this account’s monthly records and loan record. Here is each step, in order.</p>
         </div>
         <button type="button" className="lineage-replay" onClick={() => setRevealed(1)}
           disabled={revealed <= total}>Replay ↻</button>
@@ -109,6 +210,14 @@ export default function DataLineage({ baseline, account, onBack }) {
         <ol className="lineage" aria-live="polite">
           {steps.map((s, i) => {
             if (!shown(s.beat)) return null;
+            if (s.section) {
+              return (
+                <li key={i} ref={s.beat === revealed - 1 ? tail : undefined}>
+                  <div className="lin-link" aria-hidden="true" />
+                  <h2 className="lin-section">{s.section}</h2>
+                </li>
+              );
+            }
             if (!s.columns) {
               return (
                 <li key={i} ref={s.beat === revealed - 1 ? tail : undefined}>
