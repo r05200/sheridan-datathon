@@ -310,13 +310,21 @@ body[data-view=customer] .intro{margin-bottom:28px}
 body[data-view=stress] .intro h1,body[data-view=plan] .intro h1{font-size:28px}
 body[data-view=stress] .intro,body[data-view=plan] .intro{padding:20px 28px}
 
-body[data-view=stress] .action-plans{display:none}
-body[data-view=plan] .workspace{display:block}
-body[data-view=plan] .results-panel>.panel-heading{display:none}
-body[data-view=plan] #results>:not(.action-plans):not(.explanation){display:none}
-body[data-view=plan] .action-plans{margin:0;padding:0;border:0}
-body[data-view=plan] #planning-form{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
-body[data-view=plan] #planning-form>p,body[data-view=plan] #planning-form>button{grid-column:1/-1}
+/* Plan tab: goal plan alone fills the width; with a scenario, a one-line scenario card then goal + backup side by side. */
+.plan-view{border:1px solid var(--line);background:white;border-radius:18px;padding:22px;box-shadow:0 8px 24px #c8640a0d,0 2px 6px #c8640a08;min-width:0}
+.plan-view .action-plans{margin:0;padding:0;border:0}
+#planning-form{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+#planning-form.single{grid-template-columns:1fr}
+#planning-form>p,#planning-form>button{grid-column:1/-1}
+.scenario-card{display:flex;align-items:center;gap:14px;padding:12px 16px;margin-bottom:20px;border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:12px;background:#fffaf4;min-width:0;white-space:nowrap}
+.scenario-card .eyebrow{margin:0;flex:none}
+.scenario-card strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.scenario-card .scenario-runway{flex:none;font-size:12px;color:var(--muted)}
+.scenario-card button{flex:none;padding:7px 12px;font-size:12px;background:white;color:var(--orange);border:1px solid var(--orange);box-shadow:none}
+@media(max-width:640px){.scenario-card .scenario-runway,.scenario-card .eyebrow{display:none}}
+.to-plan{display:flex;justify-content:flex-end;margin-top:16px}
+.add-stress{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:20px;padding:16px 18px;border:1px dashed var(--orange);border-radius:12px;background:#fffaf4}
+.add-stress p{margin:0;flex:1 1 260px;font-size:16px;line-height:1.6;color:var(--muted)}
 .plan-card{margin:0}
 .action-plans>.section-title{margin-bottom:20px}
 
@@ -367,7 +375,7 @@ body[data-view=stress] .message{padding:18px 20px}
 
 body[data-view=stress] .message.user{align-self:stretch;max-width:100%;border-radius:14px;border-left:4px solid #f58220}
 
-body[data-view=stress] .manual{max-height:45vh;overflow-y:auto}
+body[data-view=stress] .manual{max-height:none;overflow:visible}
 
 .message ul.changes{margin:6px 0 10px;line-height:1.7}
 

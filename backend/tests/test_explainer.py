@@ -70,7 +70,9 @@ def test_rounded_differently_is_rejected():
 
 
 def test_over_long_field_is_rejected():
-    clean, why = explainer.validate({**GOOD, "summary": "word " * 80}, PLAN)
+    clean, why = explainer.validate({**GOOD, "summary": "word " * 130}, PLAN)
+    assert clean is None and "too long" in why
+    clean, why = explainer.validate({**GOOD, "goal_plan_text": "word " * 80}, PLAN)
     assert clean is None and "too long" in why
 
 
@@ -78,6 +80,14 @@ def test_stray_caveat_is_blanked_when_not_needed():
     no_cut_plan = build_plan(BASE, FLEX, Shock())
     clean, _ = explainer.validate({**explainer.template_explanation(no_cut_plan), "caveat": "Be careful."}, no_cut_plan)
     assert clean["caveat"] == ""
+
+
+def test_summary_uses_account_data():
+    p = build_plan({**BASE, "fixed_costs": 1200, "loan_payment": 300}, FLEX, Shock(income_multiplier=0.55))
+    assert p["account"] == {"household_bills": 900, "fixed_costs": 1200, "loan_payment": 300, "months_of_history": 40}
+    s = explainer.template_explanation(p)["summary"]
+    for text in ("$1,200 in fixed costs", "$300 in loan payments", "$900 a month", "40 months of history"):
+        assert text in s, (text, s)
 
 
 def test_missing_field_rejected():
@@ -150,6 +160,7 @@ def test_template_numbers_all_appear_in_input_for_50_accounts_x_3_shocks(session
             assert explainer.invalid_numbers(t, plan) == [], (acct, shock, t)
             clean, why = explainer.validate(t, plan)
             assert clean, (acct, why, t)                                # template satisfies its own rules
-            assert all(len(v.split()) <= 60 for v in t.values())
+            assert all(len(v.split()) <= (100 if k == "summary" else 60) for k, v in t.items())
+            assert t["summary"].startswith("Normally ")                  # leads with the account context
             checked += 1
     assert checked == 150

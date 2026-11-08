@@ -84,7 +84,7 @@ class ShockModel(BaseModel):
 
 
 class PlanningModel(BaseModel):
-    target_months: int = Field(3, ge=1, le=12)
+    target_months: int = Field(3, ge=1)
     deadline_months: int = Field(12, ge=1, le=120)
     monthly_contribution: float | None = Field(None, gt=0, le=1_000_000, allow_inf_nan=False)
     confirmed_monthly_cut: float = Field(0, ge=0, le=1_000_000, allow_inf_nan=False)

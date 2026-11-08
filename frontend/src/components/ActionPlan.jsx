@@ -1,4 +1,4 @@
-import { preciseCash } from '../format.js';
+import { preciseCash, runway } from '../format.js';
 
 const GOAL_STATUS = {
   target_met: 'Target already met', no_surplus: 'Restore cash flow first',
@@ -18,8 +18,21 @@ function timeToGoal(m) {
   return m + ' whole months';
 }
 
-// Goal and backup plans; inputs are uncontrolled and reset (via the parent's key) after each recalculation.
-export default function ActionPlan({ plan, planning, busy, error, onSubmit }) {
+// One-line summary of the applied stress-test scenario, shown above the plans.
+function ScenarioCard({ plan, onEdit }) {
+  return (
+    <div className="scenario-card">
+      <span className="eyebrow">SCENARIO APPLIED</span>
+      <strong title={plan.shock.label}>{plan.shock.label}</strong>
+      <span className="scenario-runway">Runway {runway(plan.baseline)} → {runway(plan.after_shock)}</span>
+      <button type="button" onClick={onEdit}>Edit in Stress Test ↗</button>
+    </div>
+  );
+}
+
+// Goal plan always; the backup plan only once a stress-test scenario is applied (scenario = that plan).
+// Inputs are uncontrolled and reset (via the parent's key) after each recalculation.
+export default function ActionPlan({ plan, scenario, onEditScenario, planning, busy, error, onSubmit }) {
   const { goal: g, backup: b } = plan.action_plan;
 
   function submit(e) {
@@ -35,14 +48,15 @@ export default function ActionPlan({ plan, planning, busy, error, onSubmit }) {
         <h2 id="make-plan-title">Make a plan</h2>
         <span>Calculated from this account</span>
       </div>
-      <form id="planning-form" onSubmit={submit}>
+      {scenario && <ScenarioCard plan={scenario} onEdit={onEditScenario} />}
+      <form id="planning-form" className={scenario ? undefined : 'single'} onSubmit={submit}>
         <article className="plan-card">
           <p className="eyebrow">BEFORE A SHOCK</p>
           <h3>Your goal plan</h3>
           <p className="plan-status">{GOAL_STATUS[g.status]}</p>
           <div className="form-grid">
             <label>Emergency fund (months of normal spending)
-              <input name="target_months" type="number" min="1" max="12" step="1" defaultValue={g.target_months} required disabled={busy} />
+              <input name="target_months" type="number" min="1" step="1" defaultValue={g.target_months} required disabled={busy} />
             </label>
             <label>Goal deadline (months)
               <input name="deadline_months" type="number" min="1" max="120" step="1" defaultValue={g.deadline_months} required disabled={busy} />
@@ -66,7 +80,7 @@ export default function ActionPlan({ plan, planning, busy, error, onSubmit }) {
           <small>{g.assumption}</small>
         </article>
 
-        <article className="plan-card">
+        {scenario && <article className="plan-card">
           <p className="eyebrow">IF THE SHOCK HITS</p>
           <h3>Your backup plan</h3>
           <p className="plan-status">{BACKUP_STATUS[b.status]}</p>
@@ -100,7 +114,7 @@ export default function ActionPlan({ plan, planning, busy, error, onSubmit }) {
           </dl>
           <ol className="plan-steps">{b.steps.map(x => <li key={x}>{x}</li>)}</ol>
           <small>{b.assumption}</small>
-        </article>
+        </article>}
 
         <p id="planning-error" className="notice error" role="alert" hidden={!error}>{error}</p>
         <button type="submit" disabled={busy}>Recalculate my plans ↗</button>

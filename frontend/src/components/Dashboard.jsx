@@ -1,6 +1,23 @@
 import { baselineRunway, cash, runway } from '../format.js';
 import ChatPanel from './ChatPanel.jsx';
-import ResultsPanel from './ResultsPanel.jsx';
+import ResultsPanel, { Explanation } from './ResultsPanel.jsx';
+import ActionPlan from './ActionPlan.jsx';
+
+// Plan tab: the goal plan always; with an applied scenario, a one-line scenario card on top plus the backup plan.
+function PlanView({ c, plan, show }) {
+  return (
+    <div className="plan-view">
+      <ActionPlan key={c.planVersion} plan={plan} scenario={c.plan} onEditScenario={() => show('stress')}
+        planning={c.planning} busy={c.busy} error={c.planningError} onSubmit={c.recalculatePlan} />
+      {c.plan ? <Explanation state={c.explanation} /> : (
+        <div className="add-stress">
+          <p>Want to see how a job loss, rent hike or surprise bill would change this? Add a stress test to get a backup plan.</p>
+          <button type="button" onClick={() => show('stress')}>Add a stress test ↗</button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Metrics({ baseline: b, plan }) {
   if (!b) return <div id="metrics" className="metrics" />;
@@ -26,7 +43,8 @@ function Metrics({ baseline: b, plan }) {
 
 export default function Dashboard({ hidden, view, show, isAdmin, c, accountInput, setAccountInput }) {
   const b = c.baseline;
-  const planEmpty = view === 'plan' && !c.plan?.action_plan;
+  const activePlan = c.plan?.action_plan ? c.plan : c.basePlan?.action_plan ? c.basePlan : null;
+  const planEmpty = view === 'plan' && !activePlan;
   const meta = b ? `${b.months_of_history} observed months · Active loan payment ${cash(b.loan_payment)}/month` : 'Loading account…';
 
   function submitAccount(e) {
@@ -66,14 +84,17 @@ export default function Dashboard({ hidden, view, show, isAdmin, c, accountInput
         <Metrics baseline={b} plan={c.plan} />
       </section>
 
-      <div className="workspace" hidden={planEmpty}>
+      {/* Kept mounted on the Plan tab so the chat survives switching back. */}
+      <div className="workspace" hidden={view === 'plan'}>
         <ChatPanel c={c} />
-        <ResultsPanel c={c} />
+        <ResultsPanel c={c} show={show} />
       </div>
+
+      {view === 'plan' && activePlan && <PlanView c={c} plan={activePlan} show={show} />}
 
       <div id="plan-empty" className="empty" hidden={!planEmpty}>
         <h2>Build a plan from your own numbers.</h2>
-        <p>Apply a scenario in Stress Test to calculate your goal and backup plans.</p>
+        <p>{b ? 'Calculating your goal plan…' : 'Load an account to calculate your goal plan.'} Apply a scenario in Stress Test to add a backup plan.</p>
         <button type="button" onClick={() => show('stress')}>Create a stress test ↗</button>
       </div>
 

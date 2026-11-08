@@ -28,6 +28,7 @@ export function useCushion() {
   const [account, setAccount] = useState(DEFAULT_ACCOUNT);
   const [baseline, setBaseline] = useState(null);
   const [plan, setPlan] = useState(null);
+  const [basePlan, setBasePlan] = useState(null);   // no-scenario plan, so the Plan tab works before a stress test
   const [planVersion, setPlanVersion] = useState(0);
   const [planning, setPlanning] = useState({});
   const [explanation, setExplanation] = useState(null);
@@ -90,15 +91,21 @@ export function useCushion() {
       setRecentQueries(s.recent);
       setBaseline(b);
       setPlan(null);
+      setBasePlan(null);
       setPlanning({});
       setExplanation(null);
       setPlanningError('');
       setMessages([{ id: ++nextId.current, kind: 'text', text: GREETING }]);
     } catch (e) {
       setPageError(e.message);
+      return;
     } finally {
       setBusy(false);
     }
+    // Goal plan with no shock applied; failure just leaves the Plan tab's empty state.
+    api('/api/plan', { account_id: id, shock: {} })
+      .then(p => { if (s.account === id && !s.appliedShock) { setBasePlan(p); setPlanVersion(v => v + 1); } })
+      .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -215,14 +222,16 @@ export function useCushion() {
   }
 
   async function recalculatePlan(settings) {
-    if (s.busy || !s.appliedShock) return;
+    if (s.busy) return;
     setPlanningError('');
     setBusy(true);
     try {
-      const p = await api('/api/plan', { account_id: s.account, shock: s.appliedShock, planning: settings });
+      // Without an applied scenario only the goal plan is shown, so plan against no shock.
+      const p = await api('/api/plan', { account_id: s.account, shock: s.appliedShock ?? {}, planning: settings });
       s.planning = settings;
       setPlanning(settings);
-      showPlan(p);
+      if (s.appliedShock) showPlan(p);
+      else { setBasePlan(p); setPlanVersion(v => v + 1); }
     } catch (e) {
       setPlanningError(e.message);
     } finally {
@@ -231,7 +240,7 @@ export function useCushion() {
   }
 
   return {
-    health, accountIds, account, baseline, plan, planVersion, planning, explanation, messages, recentQueries,
+    health, accountIds, account, baseline, plan, basePlan, planVersion, planning, explanation, messages, recentQueries,
     busy, pageError, planningError, manualOpen, setManualOpen,
     loadAccount, sendQuery, submitManual, clarify, applyScenario, recalculatePlan,
   };
