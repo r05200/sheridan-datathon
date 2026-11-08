@@ -1,0 +1,9 @@
+is there any links to the fastapi docs
+
+---
+
+yeha thats what i mean the auto generated docs
+
+---
+
+remove the api docs link
