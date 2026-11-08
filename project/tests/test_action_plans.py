@@ -106,6 +106,6 @@ def test_api_planning_and_explanation_contract(monkeypatch):
             return {'summary':'original explainer input contract'}
         monkeypatch.setattr(explainer,'explain_plan',explain)
         assert c.post('/api/explain',json=body).status_code==200
-        assert 'action_plan' not in received
+        assert received['action_plan'] == body['action_plan']
         bad=c.post('/api/plan',json={'account_id':20134,'planning':{'monthly_contribution':1}})
         assert bad.status_code==422  # this account has no baseline surplus

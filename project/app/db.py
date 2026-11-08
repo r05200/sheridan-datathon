@@ -151,3 +151,19 @@ def table_counts() -> dict[str, int]:
     for t in ("accounts", "monthly_summary", "loans", "districts"):
         out[t] = int(_query(f"SELECT COUNT(*) AS n FROM {t}")[0]["n"])
     return out
+
+
+def get_account_page(page: int, search: str = "", page_size: int = 30) -> tuple[int, list[dict]]:
+    """Read only this page's baseline summaries; count uses the same account-ID filter."""
+    pattern = f"%{search}%"
+    where = " WHERE CAST(account_id AS TEXT) LIKE %s"
+    def matching():
+        return sorted((i, row) for i, row in _offline_rows().items() if search in str(i))
+    total = int(_run("SELECT COUNT(*) AS total FROM account_baseline" + where,
+                     (pattern,), lambda: [{"total": len(matching())}])[0]["total"])
+    offset = (page - 1) * page_size
+    rows = _run("SELECT account_id, income, spending, buffer FROM account_baseline" + where +
+                " ORDER BY account_id LIMIT %s OFFSET %s", (pattern, page_size, offset),
+                lambda: [{"account_id": i, **row} for i, row in matching()[offset:offset + page_size]])
+    return total, [{"account_id": int(row["account_id"]),
+                    **_floats(row, ["income", "spending", "buffer"])} for row in rows]

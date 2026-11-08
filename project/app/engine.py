@@ -95,7 +95,7 @@ def shock_label(s: Shock) -> str:
     for c in s.one_off_costs:
         parts.append(f"one-off cost: {c.label}")
     for c in s.recurring_costs:
-        parts.append(f"{c.label} {c.monthly_change:+g}/month ({c.source})")
+        parts.append(f"{c.label} {c.monthly_change:+g}/month")
     text = ", ".join(parts)
     return text[0].upper() + text[1:]
 

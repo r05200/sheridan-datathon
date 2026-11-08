@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 from pathlib import Path
@@ -130,7 +130,7 @@ def explain(plan_json: dict[str, Any]) -> dict[str, str]:
     """Body: the plan JSON returned by /api/plan. Always returns text (template if Gemini fails)."""
     if "baseline" not in plan_json or "after_shock" not in plan_json:
         raise HTTPException(422, "body must be a plan from /api/plan")
-    return explainer.explain_plan({k: v for k, v in plan_json.items() if k != "action_plan"})
+    return explainer.explain_plan(plan_json)
 
 
 @app.post("/api/parse-shock")
@@ -177,3 +177,15 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 @app.get("/", include_in_schema=False)
 def dashboard():
     return FileResponse(STATIC / "index.html")
+
+
+@app.get("/api/account-directory")
+def account_directory(page: int = Query(1, ge=1), search: str = Query("", max_length=30)):
+    total, rows = db.get_account_page(page, search.strip())
+    for row in rows:
+        coverage = row['buffer'] / row['spending'] if row['spending'] > 0 else (float('inf') if row['buffer'] > 0 else 0)
+        net = row['income'] - row['spending']
+        row['health'] = 'healthy' if coverage >= 3 and net >= 0 else 'watch' if coverage >= 1 else 'at_risk'
+        row['monthly_cash_flow'] = round(net, 2)
+    return {"accounts": rows, "total": total, "page": page, "page_size": 30,
+            "has_next": page * 30 < total, "has_previous": page > 1}

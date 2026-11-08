@@ -64,3 +64,31 @@ body[data-view=stress] .action-plans{display:none}body[data-view=plan] .workspac
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 /* Keep the white supplied pillow visible on the light logo tile. */
 .logo-mark>img:not(.drop),.brand-pillow{filter:drop-shadow(0 1px 1px #b8500a) drop-shadow(0 0 1px #f58220)}
+
+/* Inputs in each grid row share a baseline even when their labels wrap. */
+.form-grid{align-items:stretch}.form-grid>label{justify-content:space-between}.form-grid>label>input{margin-top:auto}.plan-card .form-grid>label{gap:10px}.estimate-note{border-top:1px solid var(--line);padding-top:14px;font-size:12px;color:var(--muted)}
+
+.projection{margin-top:24px;padding:20px 16px 16px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#fffaf4,#fff)}.projection-heading{display:flex;align-items:start;justify-content:space-between;gap:12px}.projection .projection-heading h3{font-size:16px;margin:0 0 6px}.projection-heading p{font-size:12px;color:var(--muted);line-height:1.5;margin:0}.projection-pill{padding:5px 9px;border-radius:20px;background:#e7f5eb;color:#166b45;font-size:10px;white-space:nowrap}.projection-pill.shortfall{background:#fdecef;color:#c8344b}.projection-stats{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:22px 0 4px}.projection-stats small{font-size:10px;display:block;color:var(--muted)}.projection-stats strong{display:block;font-size:22px;font-weight:700;letter-spacing:-.6px;margin-top:5px}.projection-stats>span{color:#c7b5a3;font-size:23px}.projection-stats>div:last-child{text-align:right}.projection svg{display:block;overflow:visible;margin:0;width:100%;font-family:'Nunito Sans',system-ui,sans-serif}.projection svg text{font-size:12px;fill:#807267;font-variant-numeric:tabular-nums}.projection-grid{stroke:#f0e7de;stroke-width:1}.projection-zero{stroke:#ac9d90;stroke-width:1.5}.projection-line{fill:none;stroke:#f58220;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}.projection-line.negative{stroke:#c8344b;stroke-dasharray:6 5}.projection-loss{color:#c8344b}.projection-caption{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-top:12px}.projection-dot{height:7px;width:7px;border-radius:50%;background:var(--orange);flex-shrink:0}.projection-loss .projection-dot{background:#c8344b}.projection-note{font-size:10px;line-height:1.6;color:var(--muted);margin:8px 0 0}@media(max-width:450px){.projection{padding:16px 10px}.projection-stats strong{font-size:19px}.projection-heading{gap:7px}.projection .projection-heading h3{font-size:14px}}
+
+.projection-point{cursor:pointer;outline:none}.projection-point:hover circle:last-child,.projection-point:focus circle:last-child{stroke:#b8500a;stroke-width:3;r:6}.balance-tooltip{position:fixed;z-index:1000;padding:10px 14px;border-radius:10px;background:#2b2623;color:#fff;font-size:13px;font-weight:600;box-shadow:0 6px 20px #2b262333;pointer-events:none;max-width:calc(100vw - 16px)}
+
+.account-card-content{display:flex;align-items:flex-start;flex-direction:column;gap:10px;min-width:0}.account-card .account-health{display:inline-flex;font-size:11px;padding:4px 9px;border-radius:20px;line-height:1.3}.account-health.healthy{background:#dff5e9;color:#166b45}.account-health.watch{background:#fff0d2;color:#945a0b}.account-health.at_risk{background:#fdecef;color:#c8344b}.account-card .account-card-content small{margin:0;color:var(--muted);font-size:12px;line-height:1.5}.account-pagination{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:24px 0}.account-pagination span{font-size:12px;color:var(--muted)}#selected-account{font-size:26px;letter-spacing:-.5px}.account-input{margin:12px 0}.account-card-content strong{font-size:15px}footer{display:none!important}
+
+
+/* One vector mark: the animation settles directly into the finished logo. */
+.start-center .welcome-mark{width:156px;height:156px;overflow:visible;animation:none!important;background:#fffaf4;color:#f58220;border-radius:38px}
+.start-center .welcome-mark .cushion-vector{width:142px!important;height:142px!important;margin:0;overflow:visible;color:#f58220;filter:none}
+.welcome-mark .logo-fruit{opacity:0;transform-box:view-box;transform-origin:80px 110px}
+.welcome-mark .logo-pillow{transform-box:view-box;transform-origin:80px 132px}
+.welcome-mark.dropping .logo-fruit{opacity:1;animation:fruit-cushion-land 1.65s both}
+.welcome-mark.dropping .logo-pillow{animation:cushion-compress 1.65s both}
+.welcome-mark.landed .logo-fruit{opacity:1}
+.brand-pillow{width:44px;height:44px;filter:none}
+@keyframes fruit-cushion-land{0%{transform:translateY(-70vh) rotate(-14deg);animation-timing-function:cubic-bezier(.5,0,.9,.5)}46%{transform:translateY(3px) rotate(2deg) scale(1.04,.95);animation-timing-function:ease-out}65%{transform:translateY(-23px) rotate(-3deg);animation-timing-function:ease-in}80%{transform:translateY(2px) rotate(1deg) scale(1.02,.98);animation-timing-function:ease-out}90%{transform:translateY(-6px) rotate(-1deg)}100%{transform:translateY(0) rotate(0) scale(1)}}
+@keyframes cushion-compress{0%,40%{transform:scale(1)}47%{transform:translateY(3px) scale(1.09,.79)}64%{transform:scale(.98,1.04)}79%{transform:translateY(1px) scale(1.04,.92)}91%,100%{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.welcome-mark .logo-fruit,.welcome-mark .logo-pillow{animation:none!important}}
+/* Falling artwork must not make the fixed welcome panel scroll or shift its center. */
+.start-screen{overflow:clip;overflow-anchor:none}.start-center{overflow-anchor:none}
+
+/* Space to finish reading the snapshot; compact results until a scenario is applied. */
+body[data-view=customer] #dashboard{padding-bottom:56px}.scenario-empty{padding:12px 4px;text-align:left}.scenario-empty h3{margin:0 0 8px;font-size:15px;color:var(--ink)}.scenario-empty p{margin:0;font-size:12px;line-height:1.65;max-width:52ch}.awaiting-scenario .panel-heading{padding:18px 22px}.awaiting-scenario #results{padding:16px 22px 20px}.awaiting-scenario details.data{margin-top:16px}body[data-view=stress] #dashboard{padding-bottom:36px}
