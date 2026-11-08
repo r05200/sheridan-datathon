@@ -1,0 +1,62 @@
+commit my changes on my branch
+
+---
+
+are all the packages in oackage lock json necessary
+
+---
+
+<pasted_content id="f089">
+Traceback (most recent call last):
+  File "/Users/maggiewu/sheridan-datathon/backend/scripts/setup_db.py", line 27, in <module>
+    from app.finance.account_metrics import compute_account_metrics  # noqa: E402
+  File "/Users/maggiewu/sheridan-datathon/backend/app/finance/account_metrics.py", line 13, in <module>
+    from .engine import GOAL_MONTHS_OF_SPENDING, NO_SHORTFALL, Shock, build_plan
+  File "/Users/maggiewu/sheridan-datathon/backend/app/finance/engine.py", line 14, in <module>
+    from ..db import services
+  File "/Users/maggiewu/sheridan-datathon/backend/app/db/init.py", line 7, in <module>
+    from . import services, types
+  File "/Users/maggiewu/sheridan-datathon/backend/app/db/services/init.py", line 3, in <module>
+    from .accounts import (
+  File "/Users/maggiewu/sheridan-datathon/backend/app/db/services/accounts.py", line 11, in <module>
+    from ..types import AccountSnapshot, Baseline, BaselineMetrics, FlexibleSpending
+  File "/Users/maggiewu/sheridan-datathon/backend/app/db/types.py", line 7, in <module>
+    @dataclass(frozen=True, slots=True)
+TypeError: dataclass() got an unexpected keyword argument 'slots'
+</pasted_content id="f089">
+
+---
+
+make it so that theres a switch on the top right corner for switching from admin mode to user mode, and in admin mode you can see the list of people, but in customer mode yu cant, and in admin mode you can load account but regular mode you cant, also increaase the margins on the side back to the intermediate between before and now
+
+---
+
+make the cards for admin and regular look functionally the same except for the load button and keep the heights of the stuff the same with both, also remove the upper right icon of gemini configured local data, and for te stress test dont make the card stick to 1 screen height, its just by default it is and it can expand downward, and also remove the thing that just says what if my griceries increase by x% button that exists on top of it
+
+---
+
+also add pagination to the accounts list with a list of pages at the bottom with 1 2 3 ... final page number and you can click to paginate and as you click further to the right it just shows other ones
+
+---
+
+also the accounts page, the cards are quite narrow and its only 3 over make it so that its a similar width as the other pages
+
+---
+
+also for the stress test remove the text it currently has and replace it with the orignal text, also for the stress test the apply this scenario it should be cumulative from the interpretations not just the latest one, and the view scenario thing that shows up after you press use these values should reflect that
+
+---
+
+also increase text size on the see the impact portion
+
+---
+
+explain teh durations and overlap check part
+
+---
+
+incrase the sbtitle sizing by 100% and also standardize text size (for ex all subtitles same text size etc), and yeah isnt the overlapping time periods thing easy to implement, its just the change applied to the thing separately for each shock
+
+---
+
+shrink the graph if it exists to make it fir about 60% of the width and increase the hegiht slightly and stack the 4 cards under it on top of eachother on the right of the graph
