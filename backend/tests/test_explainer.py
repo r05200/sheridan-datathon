@@ -14,8 +14,8 @@ PLAN = build_plan(BASE, FLEX, Shock(income_multiplier=0.55, income_duration_mont
 
 GOOD = {"summary": "Runway means how many months your savings would last. Your $5,200 savings would last 5.5 months.",
         "goal_plan_text": "Saving $400 a month gets you to $7,800 in 6.5 months.",
-        "backup_plan_text": "Trim about $83 a month from card or cash spending.",
-        "caveat": ""}
+        "backup_plan_text": "The required reduction is $84 a month; affordability needs confirmation.",
+        "caveat": "Withdrawals may pay for essentials; affordability is unconfirmed."}
 
 
 # ---- the PRD's required cases -------------------------------------------------------------
@@ -43,11 +43,11 @@ def test_cuts_not_sufficient_case():
     p = build_plan({**BASE, "buffer": 0}, {"card_withdrawals": 10, "cash_withdrawals": 0, "transfers_out_other": 0},
                    Shock(income_multiplier=0.5, income_duration_months=6))
     t = explainer.template_explanation(p)
-    assert "will not cover the gap" in t["caveat"]
+    assert "unconfirmed" in t["caveat"]
 
 
-def test_normal_case_has_empty_caveat():
-    assert explainer.template_explanation(PLAN)["caveat"] == ""
+def test_unverified_cuts_have_affordability_caveat():
+    assert "unconfirmed" in explainer.template_explanation(PLAN)["caveat"]
 
 
 # ---- number validation --------------------------------------------------------------------
@@ -73,7 +73,8 @@ def test_over_long_field_is_rejected():
 
 
 def test_stray_caveat_is_blanked_when_not_needed():
-    clean, _ = explainer.validate({**GOOD, "caveat": "Be careful."}, PLAN)
+    no_cut_plan = build_plan(BASE, FLEX, Shock())
+    clean, _ = explainer.validate({**explainer.template_explanation(no_cut_plan), "caveat": "Be careful."}, no_cut_plan)
     assert clean["caveat"] == ""
 
 
